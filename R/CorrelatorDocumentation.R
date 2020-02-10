@@ -1,0 +1,48 @@
+# ------------------------
+# Correlator Documentation
+# ------------------------
+#' @title Correlation Structure
+#'
+#' @description Creates a correlation structure u(x) for an emulator.
+#'
+#'     Requires two functions - one that returns the correlation between two points,
+#'     and one which calculates the expectation of a given point under this correlation function.
+#'     Both can be constants, but must be expressed as a function.
+#'
+#' @name Correlator
+#'
+#' @section Constructor: \code{Correlator$new(cov = NULL, mu = NULL)}
+#'
+#' @section Constructor Arguments:
+#'  \tabular{lll}{
+#'   \strong{Argument} \tab \strong{Type} \tab \strong{Details} \cr
+#'   \code{cov} \tab closure \tab A covariance function, which must take two arguments.\cr
+#'   \code{mu} \tab closure \tab An expectation function. \cr
+#'  }
+#'
+#' @section Constructor Details: The constructor must have both a covariance function and
+#' an expectation function of the correct type.
+#'
+#' @section Public Methods:
+#'  \tabular{ll}{
+#'   \strong{Accessor Methods} \tab \strong{Return} \cr
+#'   \code{get_exp} \tab Expectation of at a point. \cr
+#'   \code{get_cov} \tab Covariance between two points, \code{x} and \code{xp}.
+#'   If \code{xp} is not supplied, the covariance of \code{x} with itself is calculated. \cr
+#'  }
+#'
+#' @export
+#'
+#' @examples
+#'     expectation_function <- function(x) 1
+#'     covariance_function <- function(x, xp) 0.36*exp_sq(x, xp, 0.1)
+#'     u <- Correlator$new(covariance_function, expectation_function)
+#'     u$get_exp(c(0,0.1,0.2))
+#'     #> 1
+#'     u$get_cov(c(0,0.1,0.3),c(-0.1,0,0.2))
+#'     #> 0.01792334
+NULL
+# ---------------------
+# Correlator Definition
+# ---------------------
+Correlator <- R6::R6Class("Correlator", lock_objects = F)

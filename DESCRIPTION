@@ -1,0 +1,18 @@
+Package: emulatorr
+Type: Package
+Title: Emulation And History Matching Package
+Version: 0.1.0
+Authors@R: person("Andrew", "Iskauskas", email = "andrew.iskauskas@durham.ac.uk", role=c('aut', 'cre')) 
+Maintainer: Andy Iskauskas <andrew.iskauskas@durham.ac.uk>
+Description: A set of functions for Bayes Linear emulation and history matching.
+    For details on how it works, see the many papers available on the topic.
+    I will probably also type more here as time goes on.
+Depends: R (>= 3.5.0)
+Imports:
+    lhs,
+    purrr,
+    R6
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.0.2
