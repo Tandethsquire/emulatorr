@@ -9,7 +9,9 @@ gen_new_runs(
   emulators,
   ranges,
   n_points = 10 * length(emulators),
-  n_runs = 100
+  n_runs = 100,
+  z,
+  cutoff = 3
 )
 }
 \arguments{
@@ -22,6 +24,10 @@ gen_new_runs(
 \item{n_points}{Optional. Specifies how many additional points are required. Default: 10*(number of emulators)}
 
 \item{n_runs}{Optional. Number of sampling runs to perform. Default = 100}
+
+\item{z}{Optional. If given, checks implausibility of sample points to restrict to only non-implausible points.}
+
+\item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering}
 }
 \value{
 A \code{data.frame} containing the set of new points to simulate at.
@@ -32,6 +38,8 @@ for the next wave of emulators. It first augments the current training set using
 then finds the trace of the variance matrix of the emulators across these points (this is
 broadly equivalent to using V-optimality). We repeat this for \code{n_runs}, and select
 the configuration that minimises the mean of the variances across the emulators.
+If observations are given, then these are used to ensure that the new sample points are
+non-implausible according to the current emulators.
 }
 \examples{
    emulators <- emulator_from_data(input_data = GillespieSIR,

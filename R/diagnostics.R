@@ -124,7 +124,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
 classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3)
 {
   if (is.numeric(z))
-    output <- list(val = z, sigma = 0)
+    output <- list(val = z, sigma = 0.001)
   else
     output <- z
   emulator_implausibility <- apply(input_points, 1, function(x) emulator$implausibility(x, output))
