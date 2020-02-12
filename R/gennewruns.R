@@ -34,7 +34,8 @@ gen_new_runs <- function(old_points, emulators, ranges, n_points = 10*length(emu
   current_trace = NULL
   out_points = NULL
   for (i in 1:n_runs) {
-    combined_points <- lhs::augmentLHS(orig_points, n_points*5)
+    trans_points <- t(apply(old_points, 1, function(x) (x-purrr::map_dbl(ranges, ~.x[1]))/range_lengths))
+    combined_points <- lhs::augmentLHS(trans_points, n_points*5)
     new_points <- combined_points[(length(orig_points[,1])+1):length(combined_points[,1]),]
     new_points <- t(apply(new_points, 1, function(x) x*range_lengths + purrr::map_dbl(ranges, ~.x[1])))
     if (!missing(z))
