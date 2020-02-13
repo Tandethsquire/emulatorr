@@ -24,7 +24,7 @@
 #' @param input_data Required. A dataframe containing the input parameters and output values from a set of simulator runs.
 #' @param input_names Required. Indicates which columns of \code{input_data} are the inputs.
 #' @param output_names Required. Indicates which columns of \code{input_data} are the outputs.
-#' @param ranges Optional if \code{c_lengths} is provided. The input parameter ranges, as a list of 2-vectors.
+#' @param ranges The input parameter ranges, as a list of 2-vectors.
 #' @param beta Optional. Specifications for regression coefficients; each in the form \code{list(mu = vector, sigma = matrix)} per output.
 #' @param u Optional. Specifications for correlation structure; each in the form \code{list(sigma = numeric, mu = closure, theta = numeric, corr = closure)}
 #' @param c_lengths Optional if \code{ranges} or a full \code{u} specification is provided. Correlation lengths for each output.
@@ -68,9 +68,13 @@
 #'      list(sigma = 144.198, mu = u_mu, theta = 0.075, corr = exp_sq)
 #'     )
 #'     emulators <- emulator_from_data(input_data = GillespieSIR, input_names = in_vars,
-#'      output_names = out_vars, beta = beta_specs, u = correlators)
+#'      output_names = out_vars, beta = beta_specs, u = correlators, ranges = ranges)
 #'
 emulator_from_data <- function(input_data, input_names, output_names, ranges, beta, u, c_lengths, funcs, bucov) {
+  in_data <- input_data[,input_names]
+  centers <- purrr::map_dbl(ranges, ~(.x[2]+.x[1])/2)
+  scales <- purrr::map_dbl(ranges, ~(.x[2]-.x[1])/2)
+  input_data[,input_names] <- t(apply(in_data, 1, function(x) (x-centers)/scales))
   if (missing(beta) || missing(u) || missing(funcs)) {
     model_params <- paste(input_names, collapse = "+")
     models <- input_data[output_names] %>% apply(MARGIN = 2, FUN = function(x) step(lm(as.formula(paste('x~', model_params, sep = "")), data = input_data), trace = 0))
@@ -79,7 +83,7 @@ emulator_from_data <- function(input_data, input_names, output_names, ranges, be
     coeffnames <- c('(Intercept)', input_names)
     model_beta_mu <- purrr::map(models, ~ifelse(is.na(.x$coefficients[coeffnames]), 0, .x$coefficients[coeffnames] %>% as.numeric))
     model_beta_mu <- purrr::map(seq_along(model_beta_mu), ~c(model_beta_mu[.x][[1]] %>% as.numeric))
-    model_beta_sigma <- purrr::map(seq_along(1:length(input_names)), ~diag(0, nrow=length(model_beta_mu[[1]])))
+    model_beta_sigma <- purrr::map(seq_along(1:length(output_names)), ~diag(0, nrow=length(model_beta_mu[[1]])))
   }
   else {
     model_beta_mu <- purrr::map(seq_along(beta), ~beta[[.x]]$mu)
@@ -87,10 +91,10 @@ emulator_from_data <- function(input_data, input_names, output_names, ranges, be
   }
   if (missing(u)) {
     model_u_sigma <- c(sapply(models, function(x) summary(x)$sigma))
-    model_u_mu <- purrr::map(seq_along(1:length(input_names)), .f=~function(x) 0)
-    if (missing(c_lengths)) model_u_theta <- purrr::map_dbl(ranges, ~(.x[2]-.x[1])/6)
+    model_u_mu <- purrr::map(seq_along(1:length(output_names)), .f=~function(x) 0)
+    if (missing(c_lengths)) model_u_theta <- purrr::map_dbl(seq_along(output_names), ~1/3)
     else model_u_theta <- c_lengths
-    model_u_corr_func <- purrr::map(seq_along(1:length(input_names)), ~exp_sq)
+    model_u_corr_func <- purrr::map(seq_along(1:length(output_names)), ~exp_sq)
   }
   else {
     model_u_sigma <- purrr::map(seq_along(u), ~u[[.x]]$sigma)
@@ -108,8 +112,8 @@ emulator_from_data <- function(input_data, input_names, output_names, ranges, be
   model_beta <- purrr::map(seq_along(model_beta_mu), ~list(mu = model_beta_mu[[.x]], sigma = model_beta_sigma[[.x]]))
   correlators <- purrr::map(model_u, ~Correlator$new(function(x, y) .x$sigma^2*.x$c_func(x, y, .x$theta), .x$mu_func))
   if (missing(bucov))
-    output_emulators <- purrr::map(seq_along(model_beta), ~Emulator$new(model_funcs, list(mu = model_beta[[.x]]$mu, sigma = model_beta[[.x]]$sigma), correlators[[.x]]))
+    output_emulators <- purrr::map(seq_along(model_beta), ~Emulator$new(model_funcs, list(mu = model_beta[[.x]]$mu, sigma = model_beta[[.x]]$sigma), correlators[[.x]], ranges = ranges))
   else
-    output_emulators <- purrr::map(seq_along(model_beta), ~Emulator$new(model_funcs, list(mu = model_beta[[.x]]$mu, sigma = model_beta[[.x]]$sigma), correlators[[.x]], bucov))
+    output_emulators <- purrr::map(seq_along(model_beta), ~Emulator$new(model_funcs, list(mu = model_beta[[.x]]$mu, sigma = model_beta[[.x]]$sigma), correlators[[.x]], bucov, ranges = ranges))
   return(output_emulators)
 }

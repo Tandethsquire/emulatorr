@@ -22,7 +22,7 @@
 #' @examples
 #'    emulators <- emulator_from_data(input_data = GillespieSIR,
 #'     input_names = c('aSI','aIR','aSR'), output_names = c('nS','nI','nR'),
-#'     c_lengths = c(0.1, 0.085, 0.075))
+#'     c_lengths = c(0.1, 0.085, 0.075), ranges = list(c(0.1,0.8), c(0,0.5), c(0,0.05)))
 #'    trained_emulators <- purrr::map(seq_along(emulators),
 #'     ~emulators[[.x]]$bayes_adjust(GillespieSIR[,c('aSI','aIR','aSR')],
 #'     GillespieSIR[,c('nS','nI','nR')[[.x]]]))

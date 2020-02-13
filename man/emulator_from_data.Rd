@@ -23,7 +23,7 @@ emulator_from_data(
 
 \item{output_names}{Required. Indicates which columns of \code{input_data} are the outputs.}
 
-\item{ranges}{Optional if \code{c_lengths} is provided. The input parameter ranges, as a list of 2-vectors.}
+\item{ranges}{The input parameter ranges, as a list of 2-vectors.}
 
 \item{beta}{Optional. Specifications for regression coefficients; each in the form \code{list(mu = vector, sigma = matrix)} per output.}
 
@@ -92,6 +92,6 @@ be 0 (passed as \code{NULL} into the emulator).
      list(sigma = 144.198, mu = u_mu, theta = 0.075, corr = exp_sq)
     )
     emulators <- emulator_from_data(input_data = GillespieSIR, input_names = in_vars,
-     output_names = out_vars, beta = beta_specs, u = correlators)
+     output_names = out_vars, beta = beta_specs, u = correlators, ranges = ranges)
 
 }

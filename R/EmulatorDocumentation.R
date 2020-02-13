@@ -21,6 +21,8 @@
 #'   \code{beta} \tab list(mu = vector, sigma = matrix) \tab The specifications for the regression terms \code{beta}. \cr
 #'   \code{u} \tab Correlator \tab The correlation structure. \cr
 #'   \code{betaucov} \tab closure \tab Covariance function between beta and u. \cr
+#'   \code{n_params} \tab numeric \tab If ranges not supplied, the number of input parameters. \cr
+#'   \code{ranges} \tab list(numeric)|\code{NULL} \tab Parameter ranges. If none supplied, assumes all parameters are in [-1,1]. \cr
 #'  }
 #'
 #' @section Constructor Details:
@@ -29,7 +31,9 @@
 #'     expectation of the betas (a length n vector) and a variance matrix (an nxn matrix).
 #'     The correlation structure is encoded in a \code{\link{Correlator}} object.
 #'     The covariance between beta and u can be left \code{NULL}, in which case zero covariance
-#'     is assumed; otherwise an n-vector should be provided.
+#'     is assumed; otherwise an n-vector should be provided. Either the input parameter ranges
+#'     are specified in \code{ranges}, or (if all parameters are in the range [-1,1]) the
+#'     argument \code{n_inputs} should be supplied to indicate how many inputs we have.
 #'
 #' @section Public Methods:
 #'  \tabular{lll}{
@@ -57,9 +61,9 @@
 #'     # the mixed covariance is assumed to be zero
 #'     mixed_covariance = function(x) rep(0, length(regression_specifications$mu))
 #'     em = Emulator$new(funcs = basis_functions, beta = regression_specifications,
-#'         u = correlation_structure, bucov = mixed_covariance)
+#'         u = correlation_structure, bucov = mixed_covariance, n_inputs = 2)
 #'     em$get_exp(c(1,-1))
-#'     #> 0.1
+#'     #> 0.4
 #'     em$get_var(c(1,-1))
 #'     #> 0.36
 #'     # Define input and output points on which to train the emulator

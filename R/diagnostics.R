@@ -20,8 +20,9 @@
 #'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
 #'     c_lengths <- c(0.1, 0.085, 0.075)
+#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
 #'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths)
+#'      out_vars, c_lengths = c_lengths, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
 #'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
 #'     standard_errors(trained_emulators[[1]], GillespieValidation[,in_vars],
@@ -60,8 +61,9 @@ standard_errors <- function(emulator, input_points, output_points, output_name) 
 #'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
 #'     c_lengths <- c(0.1, 0.085, 0.075)
+#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
 #'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths)
+#'      out_vars, c_lengths = c_lengths, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
 #'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
 #'     comparison_diagnostics(trained_emulators[[1]], GillespieSIR[,in_vars],
@@ -113,8 +115,9 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
 #'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
 #'     c_lengths <- c(0.1, 0.085, 0.075)
+#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
 #'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths)
+#'      out_vars, c_lengths = c_lengths, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
 #'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
 #'     target_value <- list(val = 281, sigma = 37.26)
