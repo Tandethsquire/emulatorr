@@ -15,18 +15,18 @@ Emulator <- R6::R6Class(
       self$param_ranges = ranges
     },
     get_exp = function(x) {
-      x <- private$scale_inputs(x)
+      x <- scale_input(x, self$param_ranges)
       purrr::map_dbl(self$basis_f, purrr::exec, x) %*% self$beta$mu  +self$u$get_exp(x)
     },
     get_var = function(x) {
-      x <- private$scale_inputs(x)
+      x <- scale_input(x, self$param_ranges)
       f_map <- purrr::map_dbl(self$basis_f, purrr::exec, x)
       return(f_map %*% self$beta$sigma %*% f_map
         + 2 * f_map %*% self$beta_u_cov(x)
         + self$u$get_cov(x))
     },
     bayes_adjust = function(inputs, outputs) {
-      inputs <- t(apply(inputs, 1, private$scale_inputs))
+      inputs <- t(apply(inputs, 1, scale_input, self$param_ranges))
       omega <- apply(inputs, 1, function(x) apply(inputs, 1, function(y) self$u$get_cov(x,y)))
       O <- solve(omega)
       G <- t(apply(inputs, 1, function(x) purrr::map_dbl(self$basis_f, ~purrr::exec(.x, c(x)))))
@@ -52,7 +52,7 @@ Emulator <- R6::R6Class(
       return(Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var), new_u, new_beta_u_cov, n_inputs = self$n_inputs, ranges = self$param_ranges))
     },
     implausibility = function(x, z) {
-      x <- private$scale_inputs(x)
+      x <- scale_input(x, self$param_ranges)
       if (is.numeric(z))
         output <- list(val = z, sigma = 0)
       else output <- z
@@ -64,14 +64,6 @@ Emulator <- R6::R6Class(
       cat("Beta: \n")
       cat("\t Mu: ", paste(self$beta$mu, collapse="; "), "\n")
       cat("\t Sigma:", "matrix(", paste(self$beta$sigma, collapse=", "), ")\n")
-    }
-  ),
-  private = list(
-    scale_inputs = function(x, scale = TRUE) {
-      centers <- purrr::map_dbl(self$param_ranges, ~(.x[2]+.x[1])/2)
-      scales <- purrr::map_dbl(self$param_ranges, ~(.x[2]-.x[1])/2)
-      if (scale) return((x - centers)/scales)
-      return(x * scales + centers)
     }
   )
 )

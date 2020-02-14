@@ -13,7 +13,8 @@ emulator_from_data(
   u,
   c_lengths,
   funcs,
-  bucov
+  bucov,
+  quadratic = F
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ emulator_from_data(
 \item{funcs}{Optional. Basis functions for the regression surface.}
 
 \item{bucov}{Optional. Covariance vector between beta and u.}
+
+\item{quadratic}{Include quadratic terms in model fitting? Default: FALSE}
 }
 \value{
 A list of objects of class \code{\link{Emulator}}.
@@ -91,7 +94,10 @@ be 0 (passed as \code{NULL} into the emulator).
      list(sigma = 113.299, mu = u_mu, theta = 0.085, corr = exp_sq),
      list(sigma = 144.198, mu = u_mu, theta = 0.075, corr = exp_sq)
     )
+    basis_functions <- c(function(x) 1, function(x) x[[1]],
+     function(x) x[[2]], function(x) x[[3]])
     emulators <- emulator_from_data(input_data = GillespieSIR, input_names = in_vars,
-     output_names = out_vars, beta = beta_specs, u = correlators, ranges = ranges)
+     output_names = out_vars, beta = beta_specs, u = correlators,
+     funcs = basis_functions, ranges = ranges)
 
 }
