@@ -3,11 +3,15 @@ Correlator <- R6::R6Class(
   public = list(
     cov_func = NULL,
     exp_func = NULL,
-    initialize = function(cov, mu) {
+    delta = NULL,
+    initialize = function(cov, mu, delta = NULL) {
       if (length(formals(cov)) != 2) stop("Covariance function must take exactly two arguments.")
       if (length(formals(mu)) != 1) stop("Expectation function must take exactly one argument.")
       if (length(cov(1, 1)) != 1 | length(mu(1)) != 1) stop("The covariance and expectation functions must return a single value.")
-      self$cov_func = cov
+      if(!is.null(delta))
+        self$cov_func = function(x,xp) (1-delta)*cov(x,xp) + cov(0,0)*delta*ifelse(abs(x-xp) < 0.0001, 1, 0)
+      else
+        self$cov_func = cov
       self$exp_func = mu
     },
     get_exp =  function(x) {

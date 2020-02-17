@@ -14,6 +14,7 @@ emulator_from_data(
   c_lengths,
   funcs,
   bucov,
+  deltas,
   quadratic = F
 )
 }
@@ -36,6 +37,8 @@ emulator_from_data(
 
 \item{bucov}{Optional. Covariance vector between beta and u.}
 
+\item{deltas}{Optional. Specifications for the nugget terms.}
+
 \item{quadratic}{Include quadratic terms in model fitting? Default: FALSE}
 }
 \value{
@@ -57,6 +60,8 @@ They are assumed to be known, and so given a variance matrix 0.
 The correlation structire is taken to be exponential squared, with correlation length one-sixth
 of the input parameter range. The overall variance is taken to be the residual squared error
 from the linear models used to fit the regression coefficients, and zero expectation is assumed.
+If a nugget \code{w(x)} is desired, then the scale of the nugget should be provided as a list
+of numerics to \code{deltas} (see the \code{\link{Correlator}} documentation for details).
 
 The covariance between the regression coefficients and the correlation structure is assumed to
 be 0 (passed as \code{NULL} into the emulator).

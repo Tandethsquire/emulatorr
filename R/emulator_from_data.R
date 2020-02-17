@@ -14,6 +14,8 @@
 #' The correlation structire is taken to be exponential squared, with correlation length one-sixth
 #' of the input parameter range. The overall variance is taken to be the residual squared error
 #' from the linear models used to fit the regression coefficients, and zero expectation is assumed.
+#' If a nugget \code{w(x)} is desired, then the scale of the nugget should be provided as a list
+#' of numerics to \code{deltas} (see the \code{\link{Correlator}} documentation for details).
 #'
 #' The covariance between the regression coefficients and the correlation structure is assumed to
 #' be 0 (passed as \code{NULL} into the emulator).
@@ -31,6 +33,7 @@
 #' @param funcs Optional. Basis functions for the regression surface.
 #' @param bucov Optional. Covariance vector between beta and u.
 #' @param quadratic Include quadratic terms in model fitting? Default: FALSE
+#' @param deltas Optional. Specifications for the nugget terms.
 #'
 #' @return A list of objects of class \code{\link{Emulator}}.
 #' @export
@@ -74,7 +77,7 @@
 #'      output_names = out_vars, beta = beta_specs, u = correlators,
 #'      funcs = basis_functions, ranges = ranges)
 #'
-emulator_from_data <- function(input_data, input_names, output_names, ranges, beta, u, c_lengths, funcs, bucov, quadratic=F) {
+emulator_from_data <- function(input_data, input_names, output_names, ranges, beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {
   if (missing(ranges)) ranges <- purrr::map(input_names, ~c(-1,1))
   data <- cbind(t(apply(input_data[,input_names], 1, scale_input, ranges)), input_data[,output_names])
   if (missing(beta) || missing(u) || missing(funcs)) {
@@ -111,7 +114,10 @@ emulator_from_data <- function(input_data, input_names, output_names, ranges, be
     model_u_thetas <- purrr::map(u, ~.x$theta)
     model_u_corr_funcs <- purrr::map(u, ~.x$corr)
   }
-  model_us <- purrr::map(seq_along(model_u_sigmas), ~Correlator$new(function(x, y) model_u_sigmas[[.x]]^2*model_u_corr_funcs[[.x]](x, y, model_u_thetas[[.x]]), model_u_mus[[.x]]))
+  if (missing(deltas))
+    model_us <- purrr::map(seq_along(model_u_sigmas), ~Correlator$new(function(x, y) model_u_sigmas[[.x]]^2*model_u_corr_funcs[[.x]](x, y, model_u_thetas[[.x]]), model_u_mus[[.x]]))
+  else
+    model_us <- purrr::map(seq_along(model_u_sigmas), ~Correlator$new(function(x, y) model_u_sigmas[[.x]]^2*model_u_corr_funcs[[.x]](x, y, model_u_thetas[[.x]]), model_u_mus[[.x]], deltas[[.x]]))
   model_betas <- purrr::map(seq_along(model_beta_mus), ~list(mu = model_beta_mus[[.x]], sigma = model_beta_sigmas[[.x]]))
   if (missing(bucov))
     out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(funcs = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], ranges = ranges))

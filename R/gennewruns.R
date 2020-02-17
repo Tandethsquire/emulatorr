@@ -41,6 +41,7 @@ gen_new_runs <- function(old_points, emulators, ranges, n_points = 10*length(emu
     if (!missing(z))
     {
       allowed_points <- new_points[apply(new_points, 1, function(x) nth_implausible(emulators, x, z, 2, 20))<=cutoff,]
+      if (length(allowed_points[,1]) < n_points) next
       new_points <- allowed_points[sample(seq_along(allowed_points[,1]), n_points),]
     }
     if (length(new_points[,1])<n_points) next
