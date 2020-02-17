@@ -7,6 +7,8 @@ Maintainer: Andy Iskauskas <andrew.iskauskas@durham.ac.uk>
 Description: A set of functions for Bayes Linear emulation and history matching.
     For details on how it works, see the many papers available on the topic.
     I will probably also type more here as time goes on.
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
 Depends: R (>= 3.5.0)
 Imports:
     lhs,

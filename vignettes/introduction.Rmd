@@ -1,0 +1,117 @@
+---
+title: "An Introduction to emulatorr"
+output: rmarkdown::html_vignette
+vignette : >
+  %\VignetteIndexEntry{An introduction to emulatorr}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r, echo = FALSE, message = FALSE}
+library(emulatorr)
+```
+
+The purpose of Bayes Linear emulators is to efficiently examine models, and find parameter sets that agree with inputs. These two aspects can be unconnected, but both start with the construction of robust emulators for a given model.
+
+The general form of an emulator is f(x)=g(x)*beta + u(x) + w(x). The g(x) are basis functions for the regression surface (which need not be linear); the beta are the corresponding regression coefficients. The u(x) and w(x) contribute to the correlation structure; u(x) typically operates on the active variables, and w(x) is a 'nugget' term which will be discussed later.
+
+We will use a Gillespie SIR model to demonstrate the aspects of emulator construction: in the model there are three input parameters (aSI, aIR, aSR), corresponding to infection rate, recovery rate, and immunisation rate respectively; and three output parameters (nS, nR, nI), corresponding to the numbers of susceptible, infectious, and recovered people at a chosen time point. Datasets `GillespieSIR` and `GillespieValidation` are provided for the purpose of demonstrating the construction: for details of the runs, type `?GillespieSIR`.
+
+## Training Emulators
+
+The simplest case is if we have no explicit specifications in mind, and want to quickly generate emulators for the model. In this case, we need only specify the data to use, the input parameter names, the output parameter names, and the input ranges. The input ranges are important as the emulators should be trained to input data in the range [-1,1] for each input.
+
+```{r}
+input_data <- GillespieSIR
+input_names <- c('aSI', 'aIR', 'aSR')
+output_names <- c('nS', 'nI', 'nR')
+ranges <- list(c(0.1, 0.8), c(0, 0.5), c(0, 0.05))
+```
+
+Then we can use `emulator_from_data` in its most basic form. This will produce emulators whose basis functions are given by a combination of the `step` and `lm` functions, with coefficients corresponding to those produced therein; the correlation structure is assumed to be exponential-squared, with variance Var[u(x)] given by the residual standard error from `lm`. The correlation lengths for the exponential-squared functions will automatically be 1/3. This may not give a great set of emulators, but forms a good starting point.
+
+```{r}
+first_emulators <- emulator_from_data(input_data, input_names, output_names, ranges = ranges)
+```
+
+This generates a list of univariate emulators - one for each output. We can find the expectation and variance of any of these emulators at a point in the input space by using the `get_exp` and `get_var` functions. In fact, plotting them over the space would be more useful:
+
+```{r, fig.width = 7, fig.height = 7}
+xseq <- seq(0.1, 0.8, length.out = 30)
+yseq <- seq(0, 0.5, length.out = 30)
+em1_exp <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) first_emulators[[1]]$get_exp(c(x, 0))), nrow = length(xseq))
+filled.contour(xseq, yseq, em1_exp, main = "First emulator expectation")
+em1_var <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) first_emulators[[1]]$get_var(c(x, 0))), nrow = length(yseq))
+filled.contour(xseq, yseq, em1_var, main="First emulator variance")
+```
+
+We note that not much of any interest is going on here. The emulator variance is stationary (i.e. independent of position), and the expectation is simply given by a linear relationship between the two variables in question. Before we train the emulators, we will add more structure to the initial emulators.
+
+We can add a 'nugget' terms to the emulators. The idea is that we should encode some uncertainty into the results from the fitted points (those from `GillespieSIR`): the overall covariance structure will instead be `sigma^2*(1-delta)*exp_sq + delta*sigma^2*I`, where `I` is an indicator function and `delta` a numeric parameter for each output. The `sigma` terms are unchanged from the basic emulators.
+
+```{r}
+nugget_emulators <- emulator_from_data(input_data, input_names, output_names, ranges = ranges, deltas = c(0.08522, 0.00604, 0.04123))
+```
+
+The emulator expectation is unchanged, but the covariance structure is.
+
+The next stage is to train this on the data. The `emulator_from_data` outputs are R6 objects, with four built-in functions: `get_exp` and `get_var` we have seen above. One of the remaining ones is `bayes_adjust`: this takes an emulator, and some data, and uses the Bayes linear update formulae to create new emulators. We map along the emulators, passing the relevant output points to each.
+
+```{r}
+trained_emulators <- purrr::map(seq_along(first_emulators), ~first_emulators[[.x]]$bayes_adjust(GillespieSIR[,input_names], GillespieSIR[, output_names[[.x]]]))
+```
+
+The plots of these are far more instructive.
+
+```{r, fig.width = 7, fig.height = 7}
+em2_exp <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) trained_emulators[[1]]$get_exp(c(x, 0))), nrow = length(xseq))
+filled.contour(xseq, yseq, em2_exp, main = "Trained emulator expectation")
+em2_var <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) trained_emulators[[1]]$get_var(c(x, 0))), nrow = length(yseq))
+filled.contour(xseq, yseq, em2_var, main="Trained emulator variance")
+```
+
+The data has moved the emulator expectation to fit the points given; the variance has also reduced around the data points (as we'd expect). Indeed, with these emulators, the variance exactly at a data point is 0, or near enough to 0. The two-dimensional slice plotted above does not show this in full (since few points have aSR=0). However, evaluating the emulator at the known points demonstrates this clearly.
+
+```{r}
+all((apply(GillespieSIR[,input_names], 1, trained_emulators[[1]]$get_exp)-GillespieSIR[,output_names[[1]]])<0.0001)
+all(apply(GillespieSIR[,input_names], 1, trained_emulators[[1]]$get_var)<0.0001)
+```
+
+## History Matching
+
+To address the second question posited at the start, suppose we have an observation from 'real life', and we wish to know what input parameters could have given rise to the observations. Running the full model at lots of data points is computationally expensive; as we've seen however, it is fairly trivial to run the emulator at many points in the input space. A potential problem is that the emulator is only an *approximation* of the model simulator; this is not actually an issue as the emulator provides the uncertainty around any point (not just the ones for which we have data). We can thus define an *implausibility* measure - for a given observation, the implausibility that an input gives rise to the observed output is
+
+`I(x) = sqrt((z-E[f(x)])^2/(Var[f(x)]+e))`
+
+where here `z` is the observation, the expectation and variance of the emulator at a point are used, and `e` encodes any external sources of uncertainty (for example, observation error). The higher this value, the less likely it is that the input parameters can give rise to the observation. We can demand a particular cut-off for implausibility, which will then give us points that could result in the desired observation. By restricting to this (reduced) space, we can train further emulators to be more accurate on the non-implausible region, and hence recompute implausibility, which gives an even smaller non-implausible space, ...
+
+Typically, for a univariate emulator, we impose `I(x) <= 3` for a point to be non-implausible.
+
+Implausibility is dealt with in two functions: the first is `implausibility` inside the `Emulator` object.
+
+```{r, fig.width = 7, fig.height = 7}
+z <- list(list(val = 464, sigma = 14.86), list(val = 81, sigma = 5.48), list(val = 455, sigma = 14.13))
+imp_values <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) trained_emulators[[1]]$implausibility(c(x,0.025), z[[1]])), nrow = length(xseq))
+filled.contour(xseq, yseq, imp_values, main = "Emulator Implausibility")
+```
+
+In the above, we've used some synthetic data, generated from runs of the Gillespie algorithm at input (0.4, 0.25, 0.025) and finding appropriate uncertainty in the observation. We can see how much of the region for this output has been ruled out in a fairly rudimentary fashion by looking at the grid point output:
+
+```{r}
+length(imp_values[imp_values >= 3])/length(imp_values)
+```
+
+The other way in which implausiblity can be considered is the `nth_implausible` function. For multiple outputs, it is useful to consider the implausibility across the full set: the maximum (or second maximum) implausibility for a given input against the set of outputs may be useful. The cut-off value merits some consideration, but as a demonstration we stick with `I(x)<=3`.
+
+```{r, fig.width = 7, fig.height = 7}
+two_max_imp <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) nth_implausible(trained_emulators, c(x, 0.025), z, n=2)), nrow = length(xseq))
+filled.contour(xseq, yseq, two_max_imp, main = "Second maximum implausibility")
+length(two_max_imp[two_max_imp<=3])/length(two_max_imp)
+```
+
+The results from these can be used in the `gen_new_runs` function. This takes a set of emulators, and finds a new set of points that:
+- Extend the current set (in the sense of extending a Latin hypercube design)
+- Lie within the current non-implausible region
+- satisfy V-optimality: the sum of the emulator variances at the points is minimised for the design.
+
+We won't put this in a code block, as it takes a while to run and the output is not instructive in an example, but the code structure would be `next_runs <- gen_new_runs(GillespieSIR[, input_names], trained_emulators, ranges, n_points = 20, n_runs = 100, z)` to generate 20 new points, allowing for 100 different designs over which the optimal design can be chosen.
