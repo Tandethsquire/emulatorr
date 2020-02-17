@@ -28,12 +28,12 @@ Emulator <- R6::R6Class(
     bayes_adjust = function(inputs, outputs) {
       inputs <- t(apply(inputs, 1, scale_input, self$param_ranges))
       omega <- apply(inputs, 1, function(x) apply(inputs, 1, function(y) self$u$get_cov(x,y)))
-      O <- solve(omega)
+      O <- chol2inv(chol(omega))
       G <- t(apply(inputs, 1, function(x) purrr::map_dbl(self$basis_f, ~purrr::exec(.x, c(x)))))
       GOG <- t(G) %*% O %*% G
-      gls <- solve(GOG) %*% t(G) %*% O %*% outputs
-      ifelse(all(self$beta$sigma == 0), siginv <- self$beta$sigma, siginv <- solve(self$beta$sigma))
-      new_beta_var <- solve(GOG + siginv)
+      gls <- chol2inv(chol(GOG)) %*% t(G) %*% O %*% outputs
+      ifelse(all(self$beta$sigma == 0), siginv <- self$beta$sigma, siginv <- chol2inv(chol(self$beta$sigma)))
+      new_beta_var <- chol2inv(chol(GOG + siginv))
       new_beta_exp <- c(new_beta_var %*% (GOG %*% gls + siginv %*% self$beta$mu))
       point_cov <- function(x) apply(inputs, 1, function(y) self$u$get_cov(x, y)/sqrt(self$u$get_cov(x) * self$u$get_cov(y)))
       new_u_exp <- function(x) {

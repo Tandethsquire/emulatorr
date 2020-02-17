@@ -44,18 +44,18 @@
 #'     out_vars <- c("nS", "nI", "nR")
 #'     ranges <- list(c(0.1, 0.8), c(0, 0.5), c(0, 0.05))
 #'     emulators <- emulator_from_data(input_data = inputdata, input_names = in_vars,
-#'      output_names = out_vars, ranges = ranges, c_lengths = c(0.1, 0.085, 0.075))
+#'      output_names = out_vars, ranges = ranges, c_lengths = c(1/4,1/4,1/4))
 #'     emulators[[1]]$get_exp(c(0.4,0.25,0.025))
-#'     #> 341.8855
+#'     #> 640.9275
 #'     emulators[[1]]$get_var(c(0.4,0.25,0.025))
 #'     #> 8939.337
 #'     # Now we can actually use the data to generate useful emulators
 #'     new_emulators <- purrr::map(seq_along(emulators),
 #'         ~emulators[[.x]]$bayes_adjust(inputdata[,in_vars], inputdata[,out_vars[[.x]]]))
 #'     new_emulators[[1]]$get_exp(c(0.4,0.25,0.025))
-#'     #> 367.8078
+#'     #> 344.4144
 #'     new_emulators[[1]]$get_var(c(0.4,0.25,0.025))
-#'     #> 679.3054
+#'     #> 8902.77
 #'
 #'     # Same data as above, but with custom specifications.
 #'     # Suppose we instead use GLS estimates of the betas, and they're known:
@@ -65,6 +65,7 @@
 #'      list(mu = c(287.0726, 251.0185, -1029.0808, -705.5883), sigma = beta_sigma),
 #'      list(mu = c(183.7949, 429.8564, 191.6515, 6058.9556), sigma = beta_sigma)
 #'     )
+#'     # Generate the correlators
 #'     u_mu <- function(x) 0
 #'     correlators <- list(
 #'      list(sigma = 94.548, mu = u_mu, theta = 0.1, corr = exp_sq),
@@ -73,9 +74,23 @@
 #'     )
 #'     basis_functions <- c(function(x) 1, function(x) x[[1]],
 #'      function(x) x[[2]], function(x) x[[3]])
+#'     # Use nugget terms based on sd of training data
+#'     deltas <- c(0.08522, 0.00604, 0.04123)
 #'     emulators <- emulator_from_data(input_data = GillespieSIR, input_names = in_vars,
 #'      output_names = out_vars, beta = beta_specs, u = correlators,
-#'      funcs = basis_functions, ranges = ranges)
+#'      funcs = basis_functions, ranges = ranges, deltas = deltas)
+#'     emulators[[1]]$get_exp(c(0.4, 0.25, 0.025))
+#'     #> 596.909
+#'     emulators[[1]]$get_var(c(0.4, 0.25, 0.025))
+#'     #> 8939.324
+#'
+#'     # Alternatively, allow quadratic pieces:
+#'     quadratic_emulators <- emulator_from_data(input_data = inputdata, input_names = in_vars,
+#'      output_names = out_vars, quadratic = TRUE, deltas = deltas)
+#'     quadratic_emulators[[1]]$get_exp(c(0.4, 0.25, 0.025))
+#'     #> 339.8135
+#'     quadratic_emulators[[1]]$get_var(c(0.4, 0.25, 0.025))
+#'     #>  3890.263
 #'
 emulator_from_data <- function(input_data, input_names, output_names, ranges, beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {
   if (missing(ranges)) ranges <- purrr::map(input_names, ~c(-1,1))
