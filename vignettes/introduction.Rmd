@@ -45,15 +45,7 @@ em1_var <- matrix(apply(expand.grid(xseq, yseq), 1, function(x) first_emulators[
 filled.contour(xseq, yseq, em1_var, main="First emulator variance")
 ```
 
-We note that not much of any interest is going on here. The emulator variance is stationary (i.e. independent of position), and the expectation is simply given by a linear relationship between the two variables in question. Before we train the emulators, we will add more structure to the initial emulators.
-
-We can add a 'nugget' terms to the emulators. The idea is that we should encode some uncertainty into the results from the fitted points (those from `GillespieSIR`): the overall covariance structure will instead be `sigma^2*(1-delta)*exp_sq + delta*sigma^2*I`, where `I` is an indicator function and `delta` a numeric parameter for each output. The `sigma` terms are unchanged from the basic emulators.
-
-```{r}
-nugget_emulators <- emulator_from_data(input_data, input_names, output_names, ranges = ranges, deltas = c(0.08522, 0.00604, 0.04123))
-```
-
-The emulator expectation is unchanged, but the covariance structure is.
+We note that not much of any interest is going on here. The emulator variance is stationary (i.e. independent of position), and the expectation is simply given by a linear relationship between the two variables in question. We can add more structure to these initial emulators, but we will forgo this for now.
 
 The next stage is to train this on the data. The `emulator_from_data` outputs are R6 objects, with four built-in functions: `get_exp` and `get_var` we have seen above. One of the remaining ones is `bayes_adjust`: this takes an emulator, and some data, and uses the Bayes linear update formulae to create new emulators. We map along the emulators, passing the relevant output points to each.
 
@@ -113,5 +105,17 @@ The results from these can be used in the `gen_new_runs` function. This takes a 
 - Extend the current set (in the sense of extending a Latin hypercube design)
 - Lie within the current non-implausible region
 - satisfy V-optimality: the sum of the emulator variances at the points is minimised for the design.
+*The line below will take somewhat longer than the previous ones!*
 
-We won't put this in a code block, as it takes a while to run and the output is not instructive in an example, but the code structure would be `next_runs <- gen_new_runs(GillespieSIR[, input_names], trained_emulators, ranges, n_points = 20, n_runs = 100, z)` to generate 20 new points, allowing for 100 different designs over which the optimal design can be chosen.
+```{r}
+new_runs <- gen_new_runs(GillespieSIR[, input_names], trained_emulators, ranges, n_points = 20, n_runs = 50, z)
+```
+
+Plotting these, along with the original points, shows that the region of interest (that region for which I(x)<=3) has been focused on.
+
+```{r}
+plot(GillespieSIR[, input_names[c(1:2)]], pch = 16, cex = 0.5)
+points(new_runs[,c(1:2)], pch = 16, col = 'blue')
+```
+
+We can now use this augmented set of points to create more accurate emulators: we would first pass the new points to the simulator to find the simulated outputs. We could create emulators from scratch again using `emulator_from_data`, and then adjust these; alternatively, we could simply take our original emulators and adjust them based on the augmented set. 

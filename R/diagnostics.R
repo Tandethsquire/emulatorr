@@ -12,6 +12,7 @@
 #' @param input_points A set of validation points.
 #' @param output_points The outputs, \code{f(x)}, from the simulator.
 #' @param output_name Optional. A name for the output.
+#' @param plt Should a plot be shown (default: T).
 #'
 #' @return A list of standard errors.
 #' @export
@@ -27,13 +28,15 @@
 #'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
 #'     standard_errors(trained_emulators[[1]], GillespieValidation[,in_vars],
 #'      GillespieValidation[,'nS'], "nS")
-standard_errors <- function(emulator, input_points, output_points, output_name) {
+standard_errors <- function(emulator, input_points, output_points, output_name, plt = T) {
   errors <- (apply(input_points, 1, function(x) emulator$get_exp(x))-output_points)/apply(input_points, 1, function(x) sqrt(emulator$get_var(x)))
-  if (missing(output_name))
-    hist(errors, main = "Standard Errors")
-  else
-    hist(errors, xlab="Standard Error", main = paste("Standard Errors for Output:",output_name))
-  return(errors)
+  if (plt) {
+    if (missing(output_name))
+      hist(errors, main = "Standard Errors")
+    else
+      hist(errors, xlab="Standard Error", main = paste("Standard Errors for Output:",output_name))
+  }
+  return(input_points[abs(errors)>3,])
 }
 
 #' Emulator Diagnostic Plot
@@ -53,6 +56,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name) 
 #' @param range The expected range of the output.
 #' @param sd Numeric: the allowed number of standard deviations (default: 3).
 #' @param output_name Optional. A name for the output.
+#' @param plt Should a plot be shown (default: T).
 #'
 #' @return A list of points whose emulator value is outside the allowed standard deviation.
 #' @export
@@ -68,7 +72,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name) 
 #'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
 #'     comparison_diagnostics(trained_emulators[[1]], GillespieSIR[,in_vars],
 #'      GillespieSIR[,'nS'], list(c(0,1000),c(0,1000)))
-comparison_diagnostics <- function(emulator, input_points, output_points, range, sd=3, output_name) {
+comparison_diagnostics <- function(emulator, input_points, output_points, range, sd=3, output_name, plt=T) {
   emulator_outputs <- apply(input_points, 1, emulator$get_exp)
   emulator_uncertainty <- apply(input_points, 1, function(x) sd*sqrt(emulator$get_var(x)))
   emulator_invalid <- purrr::map2_lgl(output_points>emulator_outputs+emulator_uncertainty,
@@ -78,15 +82,17 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
     title_str <- "Simulator/Emulator Comparison"
   else
     title_str <- paste("Simulator/Emulator Comparison for Output:", output_name)
-  plot(output_points, emulator_outputs, pch=16, col=ifelse(emulator_invalid, 'red', 'black'),
-         xlim = range[[1]], ylim=range[[2]], xlab='f(x)', ylab='E[f(x)]',
-         panel.first = c(abline(a=0, b=1, col = 'green')),
-         main = title_str)
-  for (i in seq_along(input_points[,1]))
-    arrows(x0 = output_points[[i]], y0 = emulator_outputs[[i]] - emulator_uncertainty[[i]],
-           x1 = output_points[[i]], y1 = emulator_outputs[[i]] + emulator_uncertainty[[i]],
-           col = ifelse(emulator_invalid[[i]], 'red', 'blue'),
-           code = 3, angle = 90, length = .1)
+  if (plt) {
+    plot(output_points, emulator_outputs, pch=16, col=ifelse(emulator_invalid, 'red', 'black'),
+           xlim = range[[1]], ylim=range[[2]], xlab='f(x)', ylab='E[f(x)]',
+           panel.first = c(abline(a=0, b=1, col = 'green')),
+           main = title_str)
+    for (i in seq_along(input_points[,1]))
+      arrows(x0 = output_points[[i]], y0 = emulator_outputs[[i]] - emulator_uncertainty[[i]],
+             x1 = output_points[[i]], y1 = emulator_outputs[[i]] + emulator_uncertainty[[i]],
+             col = ifelse(emulator_invalid[[i]], 'red', 'blue'),
+             code = 3, angle = 90, length = .1)
+  }
   which_invalid <- input_points[emulator_invalid,]
   return(which_invalid)
 }
@@ -107,6 +113,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
 #' @param z The observation to test implausibility against. Either as a single \code{numeric}, or as \code{list(val=numeric, sigma=numeric)}.
 #' @param output_name Optional. A name for the output.
 #' @param cutoff Optional. The cut-off for the implausibility measure.
+#' @param plt Should a plot be shown (default: T).
 #'
 #' @return The set of points misclassified by the emulator.
 #' @export
@@ -124,7 +131,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
 #'     classification_error(emulator = trained_emulators[[1]],
 #'     input_points = GillespieValidation[,in_vars], output_points <- GillespieValidation[,'nS'],
 #'     z = target_value, output_name = 'nS')
-classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3)
+classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3, plt=T)
 {
   if (is.numeric(z))
     output <- list(val = z, sigma = 0.001)
@@ -137,9 +144,11 @@ classification_error <- function(emulator, input_points, output_points, z, outpu
     title_str <- "Emulator/Simulator Classification"
   else
     title_str <- paste("Emulator/Simulator Classification for Output:", output_name)
-  plot(emulator_implausibility, simulator_implausibility, pch = 16,
-       col = ifelse(misclass, 'red', 'black'), xlab = "Emulator Implausibility", ylab = "Simulator Implausibility",
-       main = title_str, panel.first = c(abline(h=cutoff), abline(v=cutoff)))
+  if (plt) {
+    plot(emulator_implausibility, simulator_implausibility, pch = 16,
+         col = ifelse(misclass, 'red', 'black'), xlab = "Emulator Implausibility", ylab = "Simulator Implausibility",
+         main = title_str, panel.first = c(abline(h=cutoff), abline(v=cutoff)))
+  }
   which_misclass <- input_points[misclass,]
   return(which_misclass)
 }

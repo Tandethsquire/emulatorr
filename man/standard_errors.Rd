@@ -4,7 +4,7 @@
 \alias{standard_errors}
 \title{Emulator Standard Errors}
 \usage{
-standard_errors(emulator, input_points, output_points, output_name)
+standard_errors(emulator, input_points, output_points, output_name, plt = T)
 }
 \arguments{
 \item{emulator}{An \code{\link{Emulator}} object.}
@@ -14,6 +14,8 @@ standard_errors(emulator, input_points, output_points, output_name)
 \item{output_points}{The outputs, \code{f(x)}, from the simulator.}
 
 \item{output_name}{Optional. A name for the output.}
+
+\item{plt}{Should a plot be shown (default: T).}
 }
 \value{
 A list of standard errors.

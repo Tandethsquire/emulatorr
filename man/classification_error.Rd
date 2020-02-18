@@ -10,7 +10,8 @@ classification_error(
   output_points,
   z,
   output_name,
-  cutoff = 3
+  cutoff = 3,
+  plt = T
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ classification_error(
 \item{output_name}{Optional. A name for the output.}
 
 \item{cutoff}{Optional. The cut-off for the implausibility measure.}
+
+\item{plt}{Should a plot be shown (default: T).}
 }
 \value{
 The set of points misclassified by the emulator.
