@@ -5,6 +5,7 @@
 #'
 #' @param x The point to scale
 #' @param r The list of ranges
+#' @param forward scale to [-1,1] (or from [-1,1])?
 #'
 #' @return The scaled point
 #' @export
@@ -15,9 +16,12 @@
 #'    scale_input(x, ranges)
 #'
 #'    df <- data.frame(x = c(0.1, 0.4, 0.56), y = c(0.2, 0.05, 0.45), c(0.01, 0.025, 0.04))
-#'    apply(df, 1, scale_input, ranges)
-scale_input <- function(x, r) {
+#'    df_scaled <- apply(df, 1, scale_input, ranges)
+#'    apply(df_scaled, 2, scale_input, ranges, FALSE)
+scale_input <- function(x, r, forward = TRUE) {
   centers <- purrr::map_dbl(r, ~(.x[2]+.x[1])/2)
   scales <- purrr::map_dbl(r, ~(.x[2]-.x[1])/2)
-  return((x-centers)/scales)
+  if (forward)
+   return((x-centers)/scales)
+  return(x*scales + centers)
 }

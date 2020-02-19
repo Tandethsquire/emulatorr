@@ -101,14 +101,13 @@ filled.contour(xseq, yseq, two_max_imp, main = "Second maximum implausibility")
 length(two_max_imp[two_max_imp<=3])/length(two_max_imp)
 ```
 
-The results from these can be used in the `gen_new_runs` function. This takes a set of emulators, and finds a new set of points that:
-- Extend the current set (in the sense of extending a Latin hypercube design)
+The results from these can be used in the `generate_new_runs` function. This takes a set of emulators, and finds a new set of points that:
 - Lie within the current non-implausible region
 - satisfy V-optimality: the sum of the emulator variances at the points is minimised for the design.
 *The line below will take somewhat longer than the previous ones!*
 
 ```{r}
-new_runs <- gen_new_runs(GillespieSIR[, input_names], trained_emulators, ranges, n_points = 20, n_runs = 50, z)
+new_runs <- generate_new_runs(trained_emulators, ranges, input_names, n_points = 10, n_runs = 5, z)
 ```
 
 Plotting these, along with the original points, shows that the region of interest (that region for which I(x)<=3) has been focused on.

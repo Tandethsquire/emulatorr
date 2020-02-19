@@ -12,11 +12,11 @@ library(emulatorr)
 library(purrr)
 ```
 
-# Further Specifications for Emulators
+## Further Specifications for Emulators
 
-In the [introductory vignette](introduction.html) the steps for creating basic Bayes Linear emulators was discussed. We ignored a number of optional parameters that can be passed to the emulator construction, and indeed most of the work was done by the `emulator_from_data` helper function. Here we discuss why it may be useful to tweak the settings of the emulators by hand.
+In the [introductory vignette](introduction.html) the steps for creating basic Bayes Linear emulators were discussed. We ignored a number of optional parameters that can be passed to the emulator construction, and indeed most of the work was done by the `emulator_from_data` helper function. Here we discuss why it may be useful to tweak the settings of the emulators by hand.
 
-## Diagnostics
+### Diagnostics
 There are a number of different diagnostics that we can apply to emulators. First, we'll create and train the emulators as in the introductory vignette. We'll also bring in the validation data, `GillespieValidation`:
 
 ```{r}

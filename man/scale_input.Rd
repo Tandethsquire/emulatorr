@@ -4,12 +4,14 @@
 \alias{scale_input}
 \title{Scale input parameter values}
 \usage{
-scale_input(x, r)
+scale_input(x, r, forward = TRUE)
 }
 \arguments{
 \item{x}{The point to scale}
 
 \item{r}{The list of ranges}
+
+\item{forward}{scale to [-1,1] (or from [-1,1])?}
 }
 \value{
 The scaled point
@@ -24,5 +26,6 @@ to be in the range [-1,1]*n (n is the number of input dimensions).
    scale_input(x, ranges)
 
    df <- data.frame(x = c(0.1, 0.4, 0.56), y = c(0.2, 0.05, 0.45), c(0.01, 0.025, 0.04))
-   apply(df, 1, scale_input, ranges)
+   df_scaled <- apply(df, 1, scale_input, ranges)
+   apply(df_scaled, 2, scale_input, ranges, FALSE)
 }
