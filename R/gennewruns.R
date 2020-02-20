@@ -8,7 +8,16 @@
 #' If observations are given, then these are used to ensure that the new sample points are
 #' non-implausible according to the current emulators.
 #'
-#' @importFrom stats setNames
+#' Alternatively, we may use slice sampling: given the emulators and a known
+#' non-implausible point, generate more by sampling uniformly over the minimum enclosing
+#' hyperrectangle, and ensuring that the resulting point is implausible.
+#'
+#' For any sampling strategy, the parameters \code{emulators} and \code{ranges} must be
+#' specified. If the method is 'lhs', then \code{in_names} is necessary (\code{z} is
+#' recommended, but not necessary); if the method is 'slice', then the parameters \code{x}
+#' and \code{z} are necessary. All other parameters are optional.
+#'
+#' @importFrom stats setNames runif
 #'
 #' @param emulators A list of \code{\link{Emulator}} objects, trained on the design points
 #' @param ranges The ranges of the input parameters
@@ -17,6 +26,8 @@
 #' @param n_runs Optional. Number of sampling runs to perform. Default = 100
 #' @param z Optional. If given, checks implausibility of sample points to restrict to only non-implausible points.
 #' @param cutoff Optional. If z is given, this is the implausibility cutoff for the filtering
+#' @param x Required if method is 'slice'. A starting point for the sampling
+#' @param method 'lhs' or 'slice'
 #'
 #' @return A \code{data.frame} containing the set of new points to simulate at.
 #' @export
@@ -28,27 +39,56 @@
 #'    trained_emulators <- purrr::map(seq_along(emulators),
 #'     ~emulators[[.x]]$bayes_adjust(GillespieSIR[,c('aSI','aIR','aSR')],
 #'     GillespieSIR[,c('nS','nI','nR')[[.x]]]))
-#'    generate_new_runs(trained_emulators, list(c(0.1, 0.8), c(0, 0.5), c(0, 0.05)),
-#'    c('aSI','aIR','aSR'), n_points = 5, n_runs = 5)
-generate_new_runs <- function(emulators, ranges, in_names, n_points = 10*length(emulators), n_runs = 20, z, cutoff = 3) {
-  range_lengths <- purrr::map_dbl(ranges, ~.x[2]-.x[1])
-  current_trace = NULL
-  out_points = NULL
-  for (i in 1:n_runs) {
-    new_points <- 2*(lhs::optimumLHS(n_points*5, length(ranges))-1/2)
-    new_points <- t(apply(new_points, 1, scale_input, ranges, FALSE))
-    if (!missing(z))
+#'    generate_new_runs(trained_emulators,
+#'      ranges = list(c(0.1, 0.8), c(0, 0.5), c(0, 0.05)),
+#'      in_names = c('aSI','aIR','aSR'), n_points = 5, n_runs = 5)
+#'    x_initial <- unlist(data.frame(aSI = 0.4, aIR = 0.25, aSR = 0.025))
+#'    z <- list(
+#'       list(val = 457, sigma = 15),
+#'       list(val = 81, sigma = 7),
+#'       list(val = 462, sigma = 16))
+#'    generate_new_runs(trained_emulators, list(c(0.1,0.8), c(0, 0.5), c(0, 0.05)),
+#'       x = x_initial, z = z, method = "slice", n_points = 5)
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(emulators), n_runs = 20, z, cutoff = 3, x = NULL, method = "lhs", in_names) {
+  if (method == "lhs")
+  {
+    range_lengths <- purrr::map_dbl(ranges, ~.x[2]-.x[1])
+    current_trace = NULL
+    out_points = NULL
+    new_points <- t(apply(2*(lhs::optimumLHS(n_points*5, length(ranges))-1/2), 1, scale_input, ranges, FALSE))
+    if (!missing(z)) new_points <- new_points[apply(new_points, 1, function(x) nth_implausible(emulators, x, z, 2, 20))<=cutoff,]
+    if (length(new_points[,1]) < n_points) {
+      message(cat("Only", length(new_points[,1]), "points generated."))
+      return(setNames(data.frame(new_points), in_names))
+    }
+    for (i in 1:n_runs)
     {
-      new_points <- new_points[apply(new_points, 1, function(x) nth_implausible(emulators, x, z, 2, 20))<=cutoff,]
-      if (length(new_points[,1]) < n_points) next
+      new_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
+      measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(apply(new_points, 1, emulators[[.x]]$get_var))))
+      if (is.null(current_trace) || measure < current_trace) {
+        out_points <- new_points
+        current_trace <- measure
+      }
     }
-    new_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
-    measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(apply(new_points, 1, emulators[[.x]]$get_var))))
-    if (is.null(current_trace) || measure < current_trace) {
-      out_points <- new_points
-      current_trace <- measure
-    }
+    return(setNames(data.frame(out_points),in_names))
   }
-  if (is.null(out_points)) stop("Not enough non-implausible points generated. Consider increasing the implausibility cutoff, or restricting the range.")
-  return(setNames(data.frame(out_points),in_names))
+  if (method == "slice") {
+    out_points <- x
+    x0 <- c(out_points, use.names = F)
+    x_new = x0
+    for (i in 1:n_points) {
+      for (j in 1:length(ranges)) {
+        xl = ranges[[j]][1]
+        xr = ranges[[j]][2]
+        repeat {
+          x_new[j] <- runif(1, min = xl, max = xr)
+          if (nth_implausible(emulators, x_new, z, n=2)<=cutoff) break
+          else ifelse(x_new[j]<x0[j], xl <- x_new[j], xr <- x_new[j])
+        }
+      }
+      out_points <- cbind(out_points, x_new)
+      x0 <- x_new
+    }
+    return(data.frame(t(out_points), row.names = NULL))
+  }
 }
