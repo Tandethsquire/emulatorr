@@ -53,7 +53,6 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #' @param emulator An \code{\link{Emulator}} object.
 #' @param input_points A set of validation points.
 #' @param output_points The outputs, \code{f(x)}, from the simulator.
-#' @param range The expected range of the output.
 #' @param sd Numeric: the allowed number of standard deviations (default: 3).
 #' @param output_name Optional. A name for the output.
 #' @param plt Should a plot be shown (default: T).
@@ -62,19 +61,19 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #' @export
 #'
 #' @examples
-#'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
-#'     c_lengths <- c(0.1, 0.085, 0.075)
-#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths, ranges = ranges)
+#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
+#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
+#'      out_vars, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
-#'     comparison_diagnostics(trained_emulators[[1]], GillespieSIR[,in_vars],
-#'      GillespieSIR[,'nS'], list(c(0,1000),c(0,1000)))
-comparison_diagnostics <- function(emulator, input_points, output_points, range, sd=3, output_name, plt=T) {
+#'     ~base_emulators[[.x]]$bayes_adjust(
+#'      GillespieSIR[,names(ranges)], GillespieSIR[,out_vars[[.x]]]))
+#'     comparison_diagnostics(trained_emulators[[1]], GillespieValidation[,names(ranges)],
+#'      GillespieValidation[,'nS'],output_name = 'nS')
+comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, output_name, plt=T) {
   emulator_outputs <- apply(input_points, 1, emulator$get_exp)
   emulator_uncertainty <- apply(input_points, 1, function(x) sd*sqrt(emulator$get_var(x)))
+  em_ranges <- range(c(emulator_outputs + emulator_uncertainty, emulator_outputs - emulator_uncertainty))
   emulator_invalid <- purrr::map2_lgl(output_points>emulator_outputs+emulator_uncertainty,
                                       output_points<emulator_outputs-emulator_uncertainty,
                                       ~.x|.y)
@@ -84,7 +83,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
     title_str <- paste("Simulator/Emulator Comparison for Output:", output_name)
   if (plt) {
     plot(output_points, emulator_outputs, pch=16, col=ifelse(emulator_invalid, 'red', 'black'),
-           xlim = range[[1]], ylim=range[[2]], xlab='f(x)', ylab='E[f(x)]',
+           xlim = range(output_points), ylim=range(em_ranges), xlab='f(x)', ylab='E[f(x)]',
            panel.first = c(abline(a=0, b=1, col = 'green')),
            main = title_str)
     for (i in seq_along(input_points[,1]))
@@ -121,10 +120,9 @@ comparison_diagnostics <- function(emulator, input_points, output_points, range,
 #' @examples
 #'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
-#'     c_lengths <- c(0.1, 0.085, 0.075)
 #'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
 #'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths, ranges = ranges)
+#'      out_vars, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
 #'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
 #'     target_value <- list(val = 281, sigma = 37.26)
@@ -151,4 +149,39 @@ classification_error <- function(emulator, input_points, output_points, z, outpu
   }
   which_misclass <- input_points[misclass,]
   return(which_misclass)
+}
+
+#' Validation Set Plotting
+#'
+#' Plots each of the emulator outputs against each input. For each input parameter, the
+#' emulator expectation is plotted for each output. These plots are presented as a set, to
+#' better identify trends and dependencies in the emulators outputs.
+#'
+#' @importFrom graphics plot par
+#' @importFrom stats setNames
+#'
+#' @param emulators A set of \code{\link{Emulator}} objects.
+#' @param input_points The validation input points on which to evaluate the emulators
+#' @param output_names The names of the output parameters.
+#'
+#' @return NULL
+#' @export
+#'
+#' @examples
+#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#'     out_vars <- c('nS', 'nI', 'nR')
+#'     base_ems <- emulator_from_data(GillespieSIR, names(ranges), out_vars, ranges)
+#'     trained_ems <- purrr::map(seq_along(base_ems),
+#'       ~base_ems[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)], GillespieSIR[,out_vars[[.x]]]))
+#'     validation_plots(trained_ems, GillespieValidation[,names(ranges)], out_vars)
+validation_plots <- function(emulators, input_points, output_names) {
+  input_names <- names(emulators[[1]]$param_ranges)
+  out_data <- setNames(as.data.frame(cbind(input_points, t(apply(input_points, 1, function(x) purrr::map_dbl(emulators, ~.x$get_exp(x)))))), c(input_names, output_names))
+  op <- par(mfrow = c(length(output_names), length(input_names)))
+  for (i in 1:length(emulators)) {
+    for (j in 1:length(input_names)) {
+      plot(out_data[,input_names[[j]]], out_data[,output_names[[i]]], pch=16, xlab = input_names[[j]], ylab=output_names[[i]])
+    }
+  }
+  par(op)
 }

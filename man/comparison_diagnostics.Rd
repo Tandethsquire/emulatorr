@@ -8,7 +8,6 @@ comparison_diagnostics(
   emulator,
   input_points,
   output_points,
-  range,
   sd = 3,
   output_name,
   plt = T
@@ -20,8 +19,6 @@ comparison_diagnostics(
 \item{input_points}{A set of validation points.}
 
 \item{output_points}{The outputs, \code{f(x)}, from the simulator.}
-
-\item{range}{The expected range of the output.}
 
 \item{sd}{Numeric: the allowed number of standard deviations (default: 3).}
 
@@ -41,14 +38,13 @@ lies outside 3-sigma of the simulator output are shown in red, and those input p
 are returned.
 }
 \examples{
-    in_vars <- c("aSI", "aIR", "aSR")
     out_vars <- c("nS", "nI", "nR")
-    c_lengths <- c(0.1, 0.085, 0.075)
-    ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
-    base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-     out_vars, c_lengths = c_lengths, ranges = ranges)
+    ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
+    base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
+     out_vars, ranges = ranges)
     trained_emulators <- purrr::map(seq_along(base_emulators),
-     ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
-    comparison_diagnostics(trained_emulators[[1]], GillespieSIR[,in_vars],
-     GillespieSIR[,'nS'], list(c(0,1000),c(0,1000)))
+    ~base_emulators[[.x]]$bayes_adjust(
+     GillespieSIR[,names(ranges)], GillespieSIR[,out_vars[[.x]]]))
+    comparison_diagnostics(trained_emulators[[1]], GillespieValidation[,names(ranges)],
+     GillespieValidation[,'nS'],output_name = 'nS')
 }

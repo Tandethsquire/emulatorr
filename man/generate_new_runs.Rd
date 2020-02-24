@@ -7,13 +7,12 @@
 generate_new_runs(
   emulators,
   ranges,
-  n_points = 10 * length(emulators),
+  n_points = 10 * length(ranges),
   n_runs = 20,
   z,
   cutoff = 3,
   x = NULL,
-  method = "lhs",
-  in_names
+  method = "lhs"
 )
 }
 \arguments{
@@ -32,46 +31,46 @@ generate_new_runs(
 \item{x}{Required if method is 'slice'. A starting point for the sampling}
 
 \item{method}{'lhs' or 'slice'}
-
-\item{in_names}{The names of the input parameters}
 }
 \value{
 A \code{data.frame} containing the set of new points to simulate at.
 }
 \description{
 Given a set of trained emulators, finds the next set of points that will be informative
-for the next wave of emulators. It creates a new training set using LHS, and
+for the next wave of emulators.
+}
+\details{
+If the method is LHS, this creates a new training set using LHS, and
 then finds the trace of the variance matrix of the emulators across these points (this is
 broadly equivalent to using V-optimality). We repeat this for \code{n_runs}, and select
 the configuration that minimises the mean of the variances across the emulators.
 If observations are given, then these are used to ensure that the new sample points are
 non-implausible according to the current emulators.
-}
-\details{
+
 Alternatively, we may use slice sampling: given the emulators and a known
 non-implausible point, generate more by sampling uniformly over the minimum enclosing
 hyperrectangle, and ensuring that the resulting point is implausible.
 
 For any sampling strategy, the parameters \code{emulators} and \code{ranges} must be
-specified. If the method is 'lhs', then \code{in_names} is necessary (\code{z} is
-recommended, but not necessary); if the method is 'slice', then the parameters \code{x}
+specified. If the method is 'slice', then the parameters \code{x}
 and \code{z} are necessary. All other parameters are optional.
 }
 \examples{
+   ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
+   out_names <- c('nS', 'nI', 'nR')
    emulators <- emulator_from_data(input_data = GillespieSIR,
-    input_names = c('aSI','aIR','aSR'), output_names = c('nS','nI','nR'),
-    c_lengths = c(0.1, 0.085, 0.075), ranges = list(c(0.1,0.8), c(0,0.5), c(0,0.05)))
+    input_names = names(ranges), output_names = c('nS','nI','nR'),
+    ranges = ranges)
    trained_emulators <- purrr::map(seq_along(emulators),
-    ~emulators[[.x]]$bayes_adjust(GillespieSIR[,c('aSI','aIR','aSR')],
-    GillespieSIR[,c('nS','nI','nR')[[.x]]]))
+    ~emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
+    GillespieSIR[,out_names[[.x]]]))
    generate_new_runs(trained_emulators,
-     ranges = list(c(0.1, 0.8), c(0, 0.5), c(0, 0.05)),
-     in_names = c('aSI','aIR','aSR'), n_points = 5, n_runs = 5)
+     ranges = ranges, n_points = 5, n_runs = 5)
    x_initial <- unlist(data.frame(aSI = 0.4, aIR = 0.25, aSR = 0.025))
    z <- list(
       list(val = 457, sigma = 15),
       list(val = 81, sigma = 7),
       list(val = 462, sigma = 16))
-   generate_new_runs(trained_emulators, list(c(0.1,0.8), c(0, 0.5), c(0, 0.05)),
+   generate_new_runs(trained_emulators, ranges,
       x = x_initial, z = z, method = "slice", n_points = 5)
 }
