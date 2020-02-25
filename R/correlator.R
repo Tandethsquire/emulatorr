@@ -19,6 +19,12 @@ Correlator <- R6::R6Class(
     },
     get_cov = function(x, xp = NULL) {
       return(ifelse(is.null(xp), self$cov_func(x, x), self$cov_func(x, xp)))
+    },
+    print = function(...) {
+      cat("Evaluated at 0 (not useful if non-stationary) \n")
+      cat("\t Expectation: ", self$get_exp(0), "\n")
+      cat("\t Covariance: ", self$get_cov(0), "\n")
+      cat("\t Nugget: ", ifelse(is.null(self$delta), 0, self$delta))
     }
   )
 )

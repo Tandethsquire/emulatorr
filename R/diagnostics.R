@@ -18,15 +18,14 @@
 #' @export
 #'
 #' @examples
-#'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
-#'     c_lengths <- c(0.1, 0.085, 0.075)
-#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths, ranges = ranges)
+#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
+#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
+#'      out_vars, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
-#'     standard_errors(trained_emulators[[1]], GillespieValidation[,in_vars],
+#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
+#'       GillespieSIR[,out_vars[[.x]]]))
+#'     standard_errors(trained_emulators[[1]], GillespieValidation[,names(ranges)],
 #'      GillespieValidation[,'nS'], "nS")
 standard_errors <- function(emulator, input_points, output_points, output_name, plt = T) {
   errors <- (apply(input_points, 1, function(x) emulator$get_exp(x))-output_points)/apply(input_points, 1, function(x) sqrt(emulator$get_var(x)))
@@ -118,17 +117,18 @@ comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, 
 #' @export
 #'
 #' @examples
-#'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
-#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
+#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
+#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
 #'      out_vars, ranges = ranges)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
+#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
+#'      GillespieSIR[,out_vars[[.x]]]))
 #'     target_value <- list(val = 281, sigma = 37.26)
 #'     classification_error(emulator = trained_emulators[[1]],
-#'     input_points = GillespieValidation[,in_vars], output_points <- GillespieValidation[,'nS'],
-#'     z = target_value, output_name = 'nS')
+#'     input_points = GillespieValidation[,names(ranges)],
+#'      output_points <- GillespieValidation[,'nS'],
+#'      z = target_value, output_name = 'nS')
 classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3, plt=T)
 {
   if (is.numeric(z))

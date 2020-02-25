@@ -93,7 +93,10 @@
 #'     #>  3890.263
 #'
 emulator_from_data <- function(input_data, input_names, output_names, ranges, beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {
-  if (missing(ranges)) ranges <- purrr::map(input_names, ~c(-1,1))
+  if (missing(ranges)) {
+    warning("No ranges provided; inputs assumed to be in the range [-1,1].")
+    ranges <- purrr::map(input_names, ~c(-1,1))
+  }
   data <- cbind(t(apply(input_data[,input_names], 1, scale_input, ranges)), input_data[,output_names])
   if (missing(beta) || missing(u) || missing(funcs)) {
     if(quadratic) form <- paste('(', paste(input_names, collapse="+"), ")^2", sep="")

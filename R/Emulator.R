@@ -60,10 +60,14 @@ Emulator <- R6::R6Class(
       return(sqrt((output$val-self$get_exp(x))^2/imp_var))
     },
     print = function(...) {
-      cat("Emulator: \n")
-      cat("Beta: \n")
-      cat("\t Mu: ", paste(self$beta$mu, collapse="; "), "\n")
-      cat("\t Sigma:", "matrix(", paste(self$beta$sigma, collapse=", "), ")\n")
+      cat("Parameters and ranges: ", paste(names(self$param_ranges), paste0(self$param_ranges), sep = ": ", collapse = "; "), "\n")
+      cat("Specifications: \n")
+      cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$param_ranges))), collapse = "; "), "\n")
+      cat("\t Beta - Mu: ", paste(round(self$beta$mu,4), collapse="; "), "\n")
+      cat("\t Beta - Sigma (eigenvalues):", paste(round(eigen(self$beta$sigma)$values,4), collapse="; "), "\n")
+      cat("Correlation Structure: \n")
+      cat("\t", self$u$print(), "\n")
+      cat("Mixed covariance: ", self$beta_u_cov(rep(0, length(ranges))), "\n")
     }
   )
 )
