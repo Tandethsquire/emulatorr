@@ -18,12 +18,16 @@ Emulator <- R6::R6Class(
       x <- scale_input(x, self$param_ranges)
       purrr::map_dbl(self$basis_f, purrr::exec, x) %*% self$beta$mu  +self$u$get_exp(x)
     },
-    get_var = function(x) {
+    get_cov = function(x, xp = NULL) {
+      if (is.null(xp)) xp <- x
       x <- scale_input(x, self$param_ranges)
+      xp <- scale_input(xp, self$param_ranges)
       f_map <- purrr::map_dbl(self$basis_f, purrr::exec, x)
-      return(f_map %*% self$beta$sigma %*% f_map
-        + 2 * f_map %*% self$beta_u_cov(x)
-        + self$u$get_cov(x))
+      f_map_p <- purrr::map_dbl(self$basis_f, purrr::exec, xp)
+      return(f_map %*% self$beta$sigma %*% f_map_p
+        + f_map %*% self$beta_u_cov(xp)
+        + t(self$beta_u_cov(x)) %*% f_map_p
+        + self$u$get_cov(x, xp))
     },
     bayes_adjust = function(inputs, outputs) {
       inputs <- t(apply(inputs, 1, scale_input, self$param_ranges))
@@ -56,7 +60,7 @@ Emulator <- R6::R6Class(
       if (is.numeric(z))
         output <- list(val = z, sigma = 0)
       else output <- z
-      imp_var <- self$get_var(x) + output$sigma^2
+      imp_var <- self$get_cov(x) + output$sigma^2
       return(sqrt((output$val-self$get_exp(x))^2/imp_var))
     },
     print = function(...) {

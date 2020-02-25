@@ -45,7 +45,7 @@ Creates an emulator object.
  \tabular{lll}{
   \strong{Accessor Methods} \tab \strong{Return} \tab \cr
   \code{get_exp} \tab Emulator expectation at a point \code{x}. \tab \cr
-  \code{get_var} \tab Emulator variance at a point \code{x}. \tab \cr
+  \code{get_cov} \tab Emulator variance betweeen points \code{x} and \code{xp}. \tab \cr
   \strong{Object Methods} \tab \strong{Arguments} \tab \strong{Return} \cr
   \code{bayes_adjust} \tab \code{inputs = data.frame}; \code{outputs = data.frame} \tab A new emulator, whose properties are determined from the Bayes linear adjustment of the current emulator. \cr
   \code{implausibility} \tab \code{x = numeric}; \code{z = list(val=numeric, sigma=numeric)|numeric} \tab Finds the implausiblity of an observation \code{z} at a point \code{x}. \cr
@@ -69,7 +69,7 @@ Creates an emulator object.
         u = correlation_structure, bucov = mixed_covariance, n_inputs = 2)
     em$get_exp(c(1,-1))
     #> 0.4
-    em$get_var(c(1,-1))
+    em$get_cov(c(1,-1))
     #> 0.36
     # Define input and output points on which to train the emulator
     # (here x and y are the inputs, and z the output)
@@ -81,6 +81,6 @@ Creates an emulator object.
     # matches with z, and the variance at these points is 0
     newem$get_exp(c(1,-1))
     #> 0.1
-    newem$get_var(c(1,-1))
+    newem$get_cov(c(1,-1))
     #> 0
 }

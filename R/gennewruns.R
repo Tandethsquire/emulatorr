@@ -64,7 +64,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), n
     for (i in 1:n_runs)
     {
       new_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
-      measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(apply(new_points, 1, emulators[[.x]]$get_var))))
+      measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(apply(new_points, 1, emulators[[.x]]$get_cov))))
       if (is.null(current_trace) || measure < current_trace) {
         out_points <- new_points
         current_trace <- measure

@@ -28,7 +28,7 @@
 #'     standard_errors(trained_emulators[[1]], GillespieValidation[,names(ranges)],
 #'      GillespieValidation[,'nS'], "nS")
 standard_errors <- function(emulator, input_points, output_points, output_name, plt = T) {
-  errors <- (apply(input_points, 1, function(x) emulator$get_exp(x))-output_points)/apply(input_points, 1, function(x) sqrt(emulator$get_var(x)))
+  errors <- (apply(input_points, 1, function(x) emulator$get_exp(x))-output_points)/apply(input_points, 1, function(x) sqrt(emulator$get_cov(x)))
   if (plt) {
     if (missing(output_name))
       hist(errors, main = "Standard Errors")
@@ -71,7 +71,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #'      GillespieValidation[,'nS'],output_name = 'nS')
 comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, output_name, plt=T) {
   emulator_outputs <- apply(input_points, 1, emulator$get_exp)
-  emulator_uncertainty <- apply(input_points, 1, function(x) sd*sqrt(emulator$get_var(x)))
+  emulator_uncertainty <- apply(input_points, 1, function(x) sd*sqrt(emulator$get_cov(x)))
   em_ranges <- range(c(emulator_outputs + emulator_uncertainty, emulator_outputs - emulator_uncertainty))
   emulator_invalid <- purrr::map2_lgl(output_points>emulator_outputs+emulator_uncertainty,
                                       output_points<emulator_outputs-emulator_uncertainty,

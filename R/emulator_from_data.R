@@ -47,14 +47,14 @@
 #'      output_names = out_vars, ranges = ranges, c_lengths = c(1/4,1/4,1/4))
 #'     emulators[[1]]$get_exp(c(0.4,0.25,0.025))
 #'     #> 640.9275
-#'     emulators[[1]]$get_var(c(0.4,0.25,0.025))
+#'     emulators[[1]]$get_cov(c(0.4,0.25,0.025))
 #'     #> 8939.337
 #'     # Now we can actually use the data to generate useful emulators
 #'     new_emulators <- purrr::map(seq_along(emulators),
 #'         ~emulators[[.x]]$bayes_adjust(inputdata[,in_vars], inputdata[,out_vars[[.x]]]))
 #'     new_emulators[[1]]$get_exp(c(0.4,0.25,0.025))
 #'     #> 344.4144
-#'     new_emulators[[1]]$get_var(c(0.4,0.25,0.025))
+#'     new_emulators[[1]]$get_cov(c(0.4,0.25,0.025))
 #'     #> 8902.77
 #'
 #'     # Same data as above, but with custom specifications.
@@ -81,7 +81,7 @@
 #'      funcs = basis_functions, ranges = ranges, deltas = deltas)
 #'     emulators[[1]]$get_exp(c(0.4, 0.25, 0.025))
 #'     #> 596.909
-#'     emulators[[1]]$get_var(c(0.4, 0.25, 0.025))
+#'     emulators[[1]]$get_cov(c(0.4, 0.25, 0.025))
 #'     #> 8939.324
 #'
 #'     # Alternatively, allow quadratic pieces:
@@ -89,7 +89,7 @@
 #'      output_names = out_vars, quadratic = TRUE, deltas = deltas)
 #'     quadratic_emulators[[1]]$get_exp(c(0.4, 0.25, 0.025))
 #'     #> 339.8135
-#'     quadratic_emulators[[1]]$get_var(c(0.4, 0.25, 0.025))
+#'     quadratic_emulators[[1]]$get_cov(c(0.4, 0.25, 0.025))
 #'     #>  3890.263
 #'
 emulator_from_data <- function(input_data, input_names, output_names, ranges, beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {

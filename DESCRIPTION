@@ -1,7 +1,7 @@
 Package: emulatorr
 Type: Package
 Title: Emulation And History Matching Package
-Version: 0.1.0
+Version: 0.3.5
 Authors@R: person("Andrew", "Iskauskas", email = "andrew.iskauskas@durham.ac.uk", role=c('aut', 'cre')) 
 Maintainer: Andy Iskauskas <andrew.iskauskas@durham.ac.uk>
 Description: A set of functions for Bayes Linear emulation and history matching.
