@@ -15,3 +15,12 @@ function_to_names <- function(f, var_names) {
     }
   }
 }
+
+# Scales inputs: important since the emulators *should* take inputs in [-1,1].
+scale_input <- function(x, r, forward = TRUE) {
+  centers <- purrr::map_dbl(r, ~(.x[2]+.x[1])/2)
+  scales <- purrr::map_dbl(r, ~(.x[2]-.x[1])/2)
+  if (forward)
+    return((x-centers)/scales)
+  return(x*scales + centers)
+}

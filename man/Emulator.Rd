@@ -15,20 +15,29 @@ Creates an emulator object.
  \code{Emulator$new(funcs = NULL, beta = NULL, u = NULL, betaucov = NULL)}
 }
 
-\section{Constructor Arguments}{
+\section{Arguments}{
 
- \tabular{lll}{
-  \strong{Argument} \tab \strong{Type} \tab \strong{Details} \cr
-  \code{funcs} \tab list(closure) \tab A list of basis functions. \cr
-  \code{beta} \tab list(mu = vector, sigma = matrix) \tab The specifications for the regression terms \code{beta}. \cr
-  \code{u} \tab Correlator \tab The correlation structure. \cr
-  \code{betaucov} \tab closure \tab Covariance function between beta and u. \cr
-  \code{n_params} \tab numeric \tab If ranges not supplied, the number of input parameters. \cr
-  \code{ranges} \tab list(numeric)|\code{NULL} \tab Parameter ranges. If none supplied, assumes all parameters are in [-1,1]. \cr
- }
+ \code{funcs} A list of basis functions to be used. For ease of understanding, it is advisable
+ to arrange these in increasing powers of the variables, with the constant function as the
+ first element (this is the format outputted by \code{\link{emulator_from_data}}).
+
+ \code{beta} Specifications for the regression parameters, in the form \code{list(mu, sigma)}.
+ \code{mu} is a vector of coefficients, and \code{sigma} is the corresponding covariance matrix.
+
+ \code{u} A suitably specified \code{\link{Correlator}} object.
+
+ \code{betaucov} The covariance between \code{beta} and \code{u}, as a vector of length
+ \code{length(beta$mu)}.
+
+ \code{n_params} Only required if parameter ranges are not supplied: the dimension of the
+ input parameter space.
+
+ \code{ranges} A (named) list of parameter ranges; that is, a list of the form
+ \code{list(a = c(0,1), b = c(1, 2), ...)}.
 }
 
 \section{Constructor Details}{
+
 
     The constructor must take a list of vectorized basis functions, whose length is equal to
     the number of regression coeffcients. The regression specifications are given by the
@@ -40,16 +49,29 @@ Creates an emulator object.
     argument \code{n_inputs} should be supplied to indicate how many inputs we have.
 }
 
-\section{Public Methods}{
+\section{Accessor Methods}{
 
- \tabular{lll}{
-  \strong{Accessor Methods} \tab \strong{Return} \tab \cr
-  \code{get_exp} \tab Emulator expectation at a point \code{x}. \tab \cr
-  \code{get_cov} \tab Emulator variance betweeen points \code{x} and \code{xp}. \tab \cr
-  \strong{Object Methods} \tab \strong{Arguments} \tab \strong{Return} \cr
-  \code{bayes_adjust} \tab \code{inputs = data.frame}; \code{outputs = data.frame} \tab A new emulator, whose properties are determined from the Bayes linear adjustment of the current emulator. \cr
-  \code{implausibility} \tab \code{x = numeric}; \code{z = list(val=numeric, sigma=numeric)|numeric} \tab Finds the implausiblity of an observation \code{z} at a point \code{x}. \cr
- }
+
+ \code{get_exp(x)} Returns the emulator expectation at a point \code{x}.
+
+ \code{get_cov(x, xp = NULL)} Returns the emulator covariance between two points
+ \code{x} and \code{xp}. If only \code{x} is supplied, the variance of the emulator
+ at \code{x} is returned.
+
+ \code{implausibility(x, z)} Returns the implausibility that an input point \code{x}
+ gives rise to output \code{z}. The point \code{z} can be supplied in two ways:
+ as a named list \code{list(val = , sigma = )} corresponding to observation value
+ and uncertainty, respectively. If \code{z} is supplied as a single numeric, then
+ the measurement uncertainty is assumed to be 0 (tread with care here!)
+}
+
+\section{Object Methods}{
+
+
+ \code{bayes_adjust(inputs, outputs)} Performs Bayes Linear Adjustment on the
+ emulator, given input points \code{inputs} and output values \code{outputs}. Returns
+ a new Emulator object with prior specifications given by the original emulator,
+ trained on the points given.
 }
 
 \examples{

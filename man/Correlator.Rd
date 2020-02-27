@@ -17,29 +17,28 @@ Creates a correlation structure u(x) for an emulator.
  \code{Correlator$new(cov = NULL, mu = NULL, delta = NULL)}
 }
 
-\section{Constructor Arguments}{
+\section{Arguments}{
 
- \tabular{lll}{
-  \strong{Argument} \tab \strong{Type} \tab \strong{Details} \cr
-  \code{cov} \tab closure \tab A covariance function, which must take two arguments.\cr
-  \code{mu} \tab closure \tab An expectation function. \cr
-  \code{delta} \tab numeric \tab The size of the nugget to be added \cr
- }
+ \code{cov} A covariance function, which must take two arguments.
+
+ \code{mu} An expectation function.
+
+ \code{delta} The size of the 'nugget' to be added, as a numeric in the range [0,1).
 }
 
 \section{Constructor Details}{
  The constructor must have both a covariance function and
-an expectation function of the correct type.
+an expectation function of the correct type. Errors will be thrown if \code{cov} does not
+take two arguments, and similarly if \code{mu} does not take one. The nugget is optional
+(but may be useful!)
 }
 
 \section{Public Methods}{
 
- \tabular{ll}{
-  \strong{Accessor Methods} \tab \strong{Return} \cr
-  \code{get_exp} \tab Expectation of at a point. \cr
-  \code{get_cov} \tab Covariance between two points, \code{x} and \code{xp}.
-  If \code{xp} is not supplied, the covariance of \code{x} with itself is calculated. \cr
- }
+ \code{$get_exp(x)} Returns the expectation of the correlator at a point x.
+
+ \code{$get_cov(x, xp = NULL)} Returns the covariance between two points, or the variance
+ at a point if only one argument is supplied.
 }
 
 \examples{
