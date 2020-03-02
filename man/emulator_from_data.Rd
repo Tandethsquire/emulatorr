@@ -71,7 +71,7 @@ be 0 (passed as \code{NULL} into the emulator).
     out_vars <- c("nS", "nI", "nR")
     ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
     emulators <- emulator_from_data(input_data = inputdata, input_names = names(ranges),
-     output_names = out_vars, ranges = ranges, c_lengths = c(1/4,1/4,1/4))
+     output_names = out_vars, ranges = ranges, c_lengths = c(3/4,3/4,3/4))
     emulators[[1]]$get_exp(c(0.4,0.25,0.025))
     #> 640.9275
     emulators[[1]]$get_cov(c(0.4,0.25,0.025))
@@ -95,9 +95,9 @@ be 0 (passed as \code{NULL} into the emulator).
     # Generate the correlators
     u_mu <- function(x) 0
     correlators <- list(
-     list(sigma = 94.548, mu = u_mu, theta = 0.1, corr = exp_sq),
-     list(sigma = 113.299, mu = u_mu, theta = 0.085, corr = exp_sq),
-     list(sigma = 144.198, mu = u_mu, theta = 0.075, corr = exp_sq)
+     list(sigma = 94.548, mu = u_mu, theta = 3/4, corr = exp_sq),
+     list(sigma = 113.299, mu = u_mu, theta = 3/4, corr = exp_sq),
+     list(sigma = 144.198, mu = u_mu, theta = 3/4, corr = exp_sq)
     )
     basis_functions <- c(function(x) 1, function(x) x[[1]],
      function(x) x[[2]], function(x) x[[3]])

@@ -24,6 +24,7 @@ Correlator <- R6::R6Class(
       cat("Evaluated at 0 (not useful if non-stationary) \n")
       cat("\t Expectation: ", self$get_exp(0), "\n")
       cat("\t Variance: ", self$get_cov(0), "\n")
+      cat("\t Theta: ", sqrt(-0.25/(log(self$get_cov(0,0.5))-log(ifelse(is.null(self$delta), 1, 1-self$delta)*self$get_cov(0)))), "\n")
       cat("\t Nugget: ", ifelse(is.null(self$delta), 0, self$delta))
     }
   )
