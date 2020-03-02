@@ -15,14 +15,14 @@
 #' @export
 #'
 #' @examples
-#'     in_vars <- c("aSI", "aIR", "aSR")
 #'     out_vars <- c("nS", "nI", "nR")
 #'     c_lengths <- c(0.1, 0.085, 0.075)
-#'     ranges <- list(c(0.1,0.8), c(0,0.5), c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, in_vars,
-#'      out_vars, c_lengths = c_lengths, ranges = ranges)
+#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
+#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
+#'      out_vars, ranges = ranges, c_lengths = c_lengths)
 #'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,in_vars], GillespieSIR[,out_vars[[.x]]]))
+#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
+#'       GillespieSIR[,out_vars[[.x]]]))
 #'    target_vals <- c(281, 30, 689)
 #'    target_sigmas <- c(37.26, 11.16, 31.72)
 #'    z_specs <- purrr::map2(target_vals, target_sigmas, ~list(val=.x, sigma=.y))

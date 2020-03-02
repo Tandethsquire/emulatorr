@@ -54,10 +54,10 @@ provided, a linear model is fitted as follows:
 The basis functions are assumed to be (1, x1, x2, ...) for inputs x1, x2, ...
 
 The associated beta parameters for each output are found from the coefficients of
-step(lm(output~x1+x2+...)).
-They are assumed to be known, and so given a variance matrix 0.
+the model fits from \code{\link{get_linear_model}} or \code{\link{get_quadratic_model}},
+depending on the value of the boolean \code{quadratic}.
 
-The correlation structire is taken to be exponential squared, with correlation length one-sixth
+The correlation structure is taken to be exponential squared, with correlation length one-sixth
 of the input parameter range. The overall variance is taken to be the residual squared error
 from the linear models used to fit the regression coefficients, and zero expectation is assumed.
 If a nugget \code{w(x)} is desired, then the scale of the nugget should be provided as a list
@@ -68,10 +68,9 @@ be 0 (passed as \code{NULL} into the emulator).
 }
 \examples{
     inputdata <- GillespieSIR
-    in_vars <- c("aSI", "aIR", "aSR")
     out_vars <- c("nS", "nI", "nR")
-    ranges <- list(c(0.1, 0.8), c(0, 0.5), c(0, 0.05))
-    emulators <- emulator_from_data(input_data = inputdata, input_names = in_vars,
+    ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+    emulators <- emulator_from_data(input_data = inputdata, input_names = names(ranges),
      output_names = out_vars, ranges = ranges, c_lengths = c(1/4,1/4,1/4))
     emulators[[1]]$get_exp(c(0.4,0.25,0.025))
     #> 640.9275
@@ -79,7 +78,7 @@ be 0 (passed as \code{NULL} into the emulator).
     #> 8939.337
     # Now we can actually use the data to generate useful emulators
     new_emulators <- purrr::map(seq_along(emulators),
-        ~emulators[[.x]]$bayes_adjust(inputdata[,in_vars], inputdata[,out_vars[[.x]]]))
+        ~emulators[[.x]]$bayes_adjust(inputdata[,names(ranges)], inputdata[,out_vars[[.x]]]))
     new_emulators[[1]]$get_exp(c(0.4,0.25,0.025))
     #> 344.4144
     new_emulators[[1]]$get_cov(c(0.4,0.25,0.025))
@@ -104,7 +103,8 @@ be 0 (passed as \code{NULL} into the emulator).
      function(x) x[[2]], function(x) x[[3]])
     # Use nugget terms based on sd of training data
     deltas <- c(0.08522, 0.00604, 0.04123)
-    emulators <- emulator_from_data(input_data = GillespieSIR, input_names = in_vars,
+    emulators <- emulator_from_data(input_data = GillespieSIR,
+     input_names = names(ranges),
      output_names = out_vars, beta = beta_specs, u = correlators,
      funcs = basis_functions, ranges = ranges, deltas = deltas)
     emulators[[1]]$get_exp(c(0.4, 0.25, 0.025))
@@ -113,7 +113,8 @@ be 0 (passed as \code{NULL} into the emulator).
     #> 8939.324
 
     # Alternatively, allow quadratic pieces:
-    quadratic_emulators <- emulator_from_data(input_data = inputdata, input_names = in_vars,
+    quadratic_emulators <- emulator_from_data(input_data = inputdata,
+     input_names = names(ranges), ranges = ranges,
      output_names = out_vars, quadratic = TRUE, deltas = deltas)
     quadratic_emulators[[1]]$get_exp(c(0.4, 0.25, 0.025))
     #> 339.8135
