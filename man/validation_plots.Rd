@@ -19,10 +19,8 @@ emulator expectation is plotted for each output. These plots are presented as a 
 better identify trends and dependencies in the emulators outputs.
 }
 \examples{
-    ranges <- list(aSI = c(0.1,0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
-    out_vars <- c('nS', 'nI', 'nR')
-    base_ems <- emulator_from_data(GillespieSIR, names(ranges), out_vars, ranges)
-    trained_ems <- purrr::map(seq_along(base_ems),
-      ~base_ems[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)], GillespieSIR[,out_vars[[.x]]]))
-    validation_plots(trained_ems, GillespieValidation[,names(ranges)], out_vars)
+ems <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+ ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+ quadratic = TRUE)
+validation_plots(ems, GillespieValidation[,1:3], c('nS', 'nI', 'nR'))
 }

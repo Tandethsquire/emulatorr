@@ -4,105 +4,132 @@
 \alias{Emulator}
 \title{Bayes Linear Emulator}
 \description{
-Creates an emulator object.
+Creates an univariate emulator object.
 
     The structure of the emulator is \code{f(x) = g(x) * beta + u(x)}, for
-    regression functions \code{g(x)}, coefficients \code{beta}, and a correlation
-    function \code{u(x)}. Can be used to create a new emulator via the Bayes
-    Linear adjustment formulae.
+    regression functions \code{g(x)}, regression coefficients \code{beta},
+    and correlation structure \code{u(x)}. An emulator can be created with
+    or without data; the preferred method is to create an emulator based
+    on prior specifications in the absence of data, then use that emulator
+    with data to generate a new one (see examples).
 }
 \section{Constructor}{
- \code{Emulator$new(funcs = NULL, beta = NULL, u = NULL, betaucov = NULL)}
+ \code{Emulator$new(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0)}
 }
 
 \section{Arguments}{
 
- \code{funcs} A list of basis functions to be used. For ease of understanding, it is advisable
- to arrange these in increasing powers of the variables, with the constant function as the
- first element (this is the format outputted by \code{\link{emulator_from_data}}).
+ \code{basis_f} A list of basis functions to be used. For ease of understanding, it is advisable
+ to arrange these in increasing powers of the variables. The constant function
+ \code{function(x) 1} should be the first element (this is the format given if
+ \code{emulator_from_data} is used to generate emulators).
 
- \code{beta} Specifications for the regression parameters, in the form \code{list(mu, sigma)}.
- \code{mu} is a vector of coefficients, and \code{sigma} is the corresponding covariance matrix.
+ \code{beta} A set of regression parameters. These are provided in the form
+ \code{list(mu, sigma)}, where \code{mu} are the expectations of the coefficients and
+ \code{sigma} the corresponding covariance matrix.
 
- \code{u} A suitably specified \code{\link{Correlator}} object.
+ \code{u} The specifications for the correlation structure. This has three parts: the
+ expectation E[u(x)], the variance Var[u(x)], and a correlation function c(x,x'). These
+ are passed as \code{list(mu, sigma, corr)}.
 
- \code{betaucov} The covariance between \code{beta} and \code{u}, as a vector of length
- \code{length(beta$mu)}.
+ \code{ranges} A named list of ranges for the input parameters. Required: if, for example,
+ we have two inputs \code{a} and \code{b} with ranges [-0.5,0.5] and [3,5] respectively,
+ then \code{ranges = list(a = c(-0.5,0.5), b = (3,5))}.
 
- \code{n_params} Only required if parameter ranges are not supplied: the dimension of the
- input parameter space.
+ \code{bucov} The covariance between the regression parameters and the correlation
+ structure, as a vector of length \code{length(beta$mu)}. Preferably this should be
+ defined as a list of functions.
 
- \code{ranges} A (named) list of parameter ranges; that is, a list of the form
- \code{list(a = c(0,1), b = c(1, 2), ...)}.
+ \code{data} If an adjusted emulator is desired, then the data by which to adjust is
+ specified here, as a \code{data.frame} with named columns.
+
+ \code{delta} A nugget to add to the correlation structure, in the range [0,1).
 }
 
 \section{Constructor Details}{
 
 
-    The constructor must take a list of vectorized basis functions, whose length is equal to
-    the number of regression coeffcients. The regression specifications are given by the
-    expectation of the betas (a length n vector) and a variance matrix (an nxn matrix).
-    The correlation structure is encoded in a \code{\link{Correlator}} object.
-    The covariance between beta and u can be left \code{NULL}, in which case zero covariance
-    is assumed; otherwise an n-vector should be provided. Either the input parameter ranges
-    are specified in \code{ranges}, or (if all parameters are in the range [-1,1]) the
-    argument \code{n_inputs} should be supplied to indicate how many inputs we have.
+     The constructor must take a list of vectorised basis functions, whose length is equal
+     to the number of regression coefficients, or an error will be thrown. The correlation
+     structure should be stationary, or at least such that we can define \code{sigma} as a
+     global variance: if an adjusted emulator is required, we supply an unadjusted u(x) and
+     the corresponding data by which to adjust. The Bayes Linear update equations will then
+     provide the modified (generally non-stationary) correlation structure. This has the
+     advantage that if, after diagnostics, we need to inflate or deflate the overal variance,
+     we can simply modify \code{sigma}.
+
+     The use of a nugget is as follows. If we have a generic correlation structure with
+     Cov[u(x), u(x')] = sigma^2*c(x,x'), where c(x,x') is some correlation function,
+     then the addition of a nugget transforms this to
+     Cov[u(x), u(x')] = sigma^2*(1-delta)*c(x,x')+sigma^2*delta*I(x,x'), where I(x,x')
+     is an indicator function. The nugget maintains the variance at a point while deflating
+     the covariance between points.
 }
 
 \section{Accessor Methods}{
 
 
- \code{get_exp(x)} Returns the emulator expectation at a point \code{x}.
+     \code{get_exp(x)} Returns the emulator expectation at a collection of points, \code{x}.
 
- \code{get_cov(x, xp = NULL)} Returns the emulator covariance between two points
- \code{x} and \code{xp}. If only \code{x} is supplied, the variance of the emulator
- at \code{x} is returned.
+     \code{get_cov(x, xp=NULL, full = FALSE)} Returns the covariance between collections of
+     points \code{x} and \code{xp}. If no \code{xp} is supplied, then the covariance matrix
+     for the points in \code{x} is calculated; if \code{full = TRUE}, the full covariance
+     matrix is calculated; otherwise only the variances Var[f(x), f(x')] are calculated for
+     each x in \code{x} and x' in \code{xp}.
 
- \code{implausibility(x, z)} Returns the implausibility that an input point \code{x}
- gives rise to output \code{z}. The point \code{z} can be supplied in two ways:
- as a named list \code{list(val = , sigma = )} corresponding to observation value
- and uncertainty, respectively. If \code{z} is supplied as a single numeric, then
- the measurement uncertainty is assumed to be 0 (tread with care here!)
+     \code{print()} Returns a summary of the emulator specifications.
+
+     \code{implausibility(x, z)} Returns the implausibility that input points \code{x} could
+     give rise to an output \code{z}. The output \code{z} can be supplied in two ways: either
+     as a list \code{z = list(val, sigma)} where \code{val} is the output and \code{sigma} the
+     corresponding uncertainty (e.g. observation error, model discrepancy); or as a single
+     numeric. In the latter case, the uncertainty is assumed to be identically 0 (tread with
+     caution in these circumstances!)
 }
 
 \section{Object Methods}{
 
 
- \code{bayes_adjust(inputs, outputs)} Performs Bayes Linear Adjustment on the
- emulator, given input points \code{inputs} and output values \code{outputs}. Returns
- a new Emulator object with prior specifications given by the original emulator,
- trained on the points given.
+     \code{adjust(data, out_name)} Performs Bayes Linear adjustment, given the data. The data
+     should contain all input parameters (even if they are not necessarily active for this
+     emulator) and the single output. This function creates a new emulator object with the
+     adjusted expectation and variance of beta as the primitive specifications, and supplies
+     the data for the new emulator to compute the adjusted expectation and variance of u(x),
+     and the adjusted Cov[beta, u(x)].
 }
 
 \examples{
-    # Simple regression surface: no variance, two dimensional parameter space
-    # A system like this could be obtained from, eg, lm or step
-    regression_specifications = list(mu = c(0.1, 0.2, -0.1), sigma = diag(0, nrow=3))
-    basis_functions = c(function(x) 1, function(x) x[[1]], function(x) x[[2]])
-    # Specifications for the correlation structure:
-    # E[x]=0 for all x, and Cov[u(x),u(x')]=0.36*exp_sq(...,0.1)
-    u_exp <- function(x) 0
-    u_cov <- function(x, xp) 0.36 * exp_sq(x, xp, 0.1)
-    correlation_structure = Correlator$new(u_cov, u_exp)
-    # The next line isn't necessary - if bucov is not specified,
-    # the mixed covariance is assumed to be zero
-    mixed_covariance = function(x) rep(0, length(regression_specifications$mu))
-    em = Emulator$new(funcs = basis_functions, beta = regression_specifications,
-        u = correlation_structure, bucov = mixed_covariance, n_inputs = 2)
-    em$get_exp(c(1,-1))
-    #> 0.4
-    em$get_cov(c(1,-1))
-    #> 0.36
-    # Define input and output points on which to train the emulator
-    # (here x and y are the inputs, and z the output)
-    data <- data.frame(x = c(1, 2, 3), y = c(-1, 2, 1), z = c(0.1, 0.3, -0.3))
-    # Alternative to the below line is to refer by column names.
-    # Easier if the structure of the data frame is unclear
-    newem <- em$bayes_adjust(data[,c(1,2)], data[,3])
-    # New emulator is trained to data points: the expectation at the data points
-    # matches with z, and the variance at these points is 0
-    newem$get_exp(c(1,-1))
-    #> 0.1
-    newem$get_cov(c(1,-1))
-    #> 0
+basis_functions <- list(function(x) 1, function(x) x[[1]], function(x) x[[2]])
+beta <- list(mu = c(1,2,3),
+ sigma = matrix(c(0.5, -0.1, 0.2, -0.1, 1, 0, 0.2, 0, 1.5), nrow = 3))
+u <- list(mu = function(x) 0, sigma = 3, corr = function(x, xp) exp_sq(x, xp, 0.1))
+ranges <- list(a = c(-0.5, 0.5), b = c(-1, 2))
+em <- Emulator$new(basis_functions, beta, u, ranges)
+em
+# Individual evaluations of points
+em$get_exp(c(0.1, 0.1)) #> 0.6
+em$get_cov(c(0.1, 0.1)) #> 9.5
+# 4x4 grid of points
+sample_points <- expand.grid(a = seq(-0.5, 0.5, length.out = 4), b = seq(-1, 2, length.out = 4))
+em$get_exp(sample_points) # Returns 16 expectations
+em$get_cov(sample_points) # Returns 16 variances
+sample_points_2 <- expand.grid(a = seq(-0.5, 0.5, length.out = 3),
+ b = seq(-1, 2, length.out = 4))
+em$get_cov(sample_points, sample_points_2, full = TRUE) # Returns a 16x12 matrix of covariances
+
+b_u_cov <- function(x) c(1, x[[1]], x[[1]]*x[[2]])
+del <- 0.1
+all_specs_em <- Emulator$new(basis_functions, beta, u, ranges,
+ bucov = b_u_cov, delta = del)
+all_specs_em$get_exp(c(0.1, 0.1)) #> 0.6
+all_specs_em$get_cov(c(0.1, 0.1)) #> 11.60844
+
+fake_data <- data.frame(a = runif(10, -0.5, 0.5), b = runif(10, -1, 2))
+fake_data$c <- fake_data$a + 2*fake_data$b
+newem <- em$adjust(fake_data, 'c')
+all(round(newem$get_exp(fake_data[,names(ranges)]),5) == round(fake_data$c,5)) #>TRUE
+
+newem_data <- Emulator$new(basis_functions, beta, u, ranges, data = fake_data)
+all(round(newem$get_exp(fake_data[,names(ranges)]),5)
+ == round(newem_data$get_exp(fake_data[,names(ranges)]), 5)) #>TRUE
 }

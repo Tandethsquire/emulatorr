@@ -18,17 +18,13 @@
 #' @export
 #'
 #' @examples
-#'     out_vars <- c("nS", "nI", "nR")
-#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
-#'      out_vars, ranges = ranges)
-#'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
-#'       GillespieSIR[,out_vars[[.x]]]))
-#'     standard_errors(trained_emulators[[1]], GillespieValidation[,names(ranges)],
-#'      GillespieValidation[,'nS'], "nS")
+#' em <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)[[1]]
+#' standard_errors(em, GillespieValidation[,1:3], GillespieValidation[,'nS'], 'nS')
+#' #> (0.7864384, 0.01426296, 0.001072935)
 standard_errors <- function(emulator, input_points, output_points, output_name, plt = T) {
-  errors <- (apply(input_points, 1, function(x) emulator$get_exp(x))-output_points)/apply(input_points, 1, function(x) sqrt(emulator$get_cov(x)))
+  errors <- (emulator$get_exp(input_points)-output_points)/sqrt(emulator$get_cov(input_points))
   if (plt) {
     if (missing(output_name))
       hist(errors, main = "Standard Errors")
@@ -60,18 +56,14 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #' @export
 #'
 #' @examples
-#'     out_vars <- c("nS", "nI", "nR")
-#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
-#'      out_vars, ranges = ranges)
-#'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'     ~base_emulators[[.x]]$bayes_adjust(
-#'      GillespieSIR[,names(ranges)], GillespieSIR[,out_vars[[.x]]]))
-#'     comparison_diagnostics(trained_emulators[[1]], GillespieValidation[,names(ranges)],
-#'      GillespieValidation[,'nS'],output_name = 'nS')
+#' em <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)[[1]]
+#' comparison_diagnostics(em, GillespieValidation[,1:3], GillespieValidation[,'nS'])
+#' #> (0.7864384, 0.01426296, 0.001072935)
 comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, output_name, plt=T) {
-  emulator_outputs <- apply(input_points, 1, emulator$get_exp)
-  emulator_uncertainty <- apply(input_points, 1, function(x) sd*sqrt(emulator$get_cov(x)))
+  emulator_outputs <- emulator$get_exp(input_points)
+  emulator_uncertainty <- sd*sqrt(emulator$get_cov(input_points))
   em_ranges <- range(c(emulator_outputs + emulator_uncertainty, emulator_outputs - emulator_uncertainty))
   emulator_invalid <- purrr::map2_lgl(output_points>emulator_outputs+emulator_uncertainty,
                                       output_points<emulator_outputs-emulator_uncertainty,
@@ -117,25 +109,19 @@ comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, 
 #' @export
 #'
 #' @examples
-#'     out_vars <- c("nS", "nI", "nR")
-#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
-#'      out_vars, ranges = ranges)
-#'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
-#'      GillespieSIR[,out_vars[[.x]]]))
-#'     target_value <- list(val = 281, sigma = 37.26)
-#'     classification_error(emulator = trained_emulators[[1]],
-#'     input_points = GillespieValidation[,names(ranges)],
-#'      output_points <- GillespieValidation[,'nS'],
-#'      z = target_value, output_name = 'nS')
+#' em <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)[[1]]
+#' target_value <- list(val = 281, sigma = 37.26)
+#' classification_error(em, GillespieValidation[,1:3], GillespieValidation[,'nS'], target_value)
+#' #> data.frame containing 0 points
 classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3, plt=T)
 {
   if (is.numeric(z))
     output <- list(val = z, sigma = 0.001)
   else
     output <- z
-  emulator_implausibility <- apply(input_points, 1, function(x) emulator$implausibility(x, output))
+  emulator_implausibility <- emulator$implausibility(input_points, output)
   simulator_implausibility <- purrr::map_dbl(output_points, ~sqrt((output$val-.x)^2/output$sigma^2))
   misclass <- purrr::map2_lgl(emulator_implausibility > cutoff, simulator_implausibility <= cutoff, ~.x&.y)
   if (missing(output_name))
@@ -166,17 +152,14 @@ classification_error <- function(emulator, input_points, output_points, z, outpu
 #'
 #' @return NULL
 #' @export
-#'
 #' @examples
-#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
-#'     out_vars <- c('nS', 'nI', 'nR')
-#'     base_ems <- emulator_from_data(GillespieSIR, names(ranges), out_vars, ranges)
-#'     trained_ems <- purrr::map(seq_along(base_ems),
-#'       ~base_ems[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)], GillespieSIR[,out_vars[[.x]]]))
-#'     validation_plots(trained_ems, GillespieValidation[,names(ranges)], out_vars)
+#' ems <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)
+#' validation_plots(ems, GillespieValidation[,1:3], c('nS', 'nI', 'nR'))
 validation_plots <- function(emulators, input_points, output_names) {
-  input_names <- names(emulators[[1]]$param_ranges)
-  out_data <- setNames(as.data.frame(cbind(input_points, t(apply(input_points, 1, function(x) purrr::map_dbl(emulators, ~.x$get_exp(x)))))), c(input_names, output_names))
+  input_names <- names(emulators[[1]]$ranges)
+  out_data <- setNames(as.data.frame(cbind(input_points, purrr::map(emulators, ~.x$get_exp(input_points)))), c(input_names, output_names))
   op <- par(mfrow = c(length(output_names), length(input_names)))
   for (i in 1:length(emulators)) {
     for (j in 1:length(input_names)) {

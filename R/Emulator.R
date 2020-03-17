@@ -1,76 +1,147 @@
 Emulator <- R6::R6Class(
   "Emulator",
+  private = list(
+    data_corrs = NULL,
+    design_matrix = NULL,
+    u_exp_modifier = NULL,
+    u_var_modifier = NULL,
+    beta_u_cov_modifier = NULL
+  ),
   public = list(
-    beta = NULL,
-    u = NULL,
-    beta_u_cov = NULL,
     basis_f = NULL,
-    param_ranges = NULL,
-    initialize = function(funcs, beta, u, bucov=NULL, n_inputs=NULL, ranges=purrr::map(seq_along(1:n_inputs), ~c(-1,1))) {
-      if (class(u)[1] != "Correlator") stop("u must be a correlator object.")
-      self$basis_f = funcs
-      self$beta = beta
-      self$u = u
-      self$beta_u_cov = ifelse(is.null(bucov), function(x) rep(0, length(beta$mu)), bucov)
-      self$param_ranges = ranges
+    beta_mu = NULL,
+    beta_sigma = NULL,
+    u_mu = NULL,
+    u_sigma = NULL,
+    corr_func = NULL,
+    beta_u_cov = NULL,
+    in_data = NULL,
+    out_data = NULL,
+    ranges = NULL,
+    delta = NULL,
+    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0) {
+      self$basis_f <- basis_f
+      self$beta_mu <- beta$mu
+      self$beta_sigma <- beta$sigma
+      self$u_mu <- u$mu
+      self$u_sigma <- u$sigma
+      self$delta <- delta
+      self$corr_func <- function(x, xp) {
+        if (sum((x-xp)^2) < 0.0001) extra <- 1
+        else extra <- 0
+        (1-delta) * u$corr(x, xp) + delta * extra
+      }
+      if (is.null(bucov))
+        self$beta_u_cov <- function(x) rep(0, length(self$beta_mu))
+      else
+        self$beta_u_cov <- bucov
+      self$ranges <- ranges
+      if (is.null(ranges)) stop("Ranges for the parameters must be specified.")
+      if (!is.null(data)) {
+        self$in_data <- eval_funcs(scale_input, data[,names(self$ranges)], self$ranges)
+        self$out_data <- data[, !(names(data) %in% names(self$ranges))]
+      }
+      if (!is.null(self$in_data))
+      {
+        private$data_corrs <- chol2inv(chol(self$u_sigma^2 * apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, self$in_data, y))))
+        private$design_matrix <- t(eval_funcs(self$basis_f, self$in_data))
+        private$u_var_modifier <- private$data_corrs %*% private$design_matrix %*% self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
+        private$u_exp_modifier <- private$data_corrs %*% (self$out_data - private$design_matrix %*% self$beta_mu)
+        private$beta_u_cov_modifier <- -self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
+      }
     },
     get_exp = function(x) {
-      x <- scale_input(x, self$param_ranges)
-      purrr::map_dbl(self$basis_f, purrr::exec, x) %*% self$beta$mu  +self$u$get_exp(x)
+      x <- eval_funcs(scale_input, x, self$ranges)
+      g <- t(eval_funcs(self$basis_f, x))
+      bu <- eval_funcs(self$beta_u_cov, x)
+      beta_part <- g %*% self$beta_mu
+      u_part <- eval_funcs(self$u_mu, x)
+      if (!is.null(self$in_data)) {
+        c_data <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, x, y))
+        u_part <- u_part + (t(bu) %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
+      }
+      return(beta_part + u_part)
     },
-    get_cov = function(x, xp = NULL) {
+    get_cov = function(x, xp = NULL, full = FALSE) {
+      x <- eval_funcs(scale_input, x, self$ranges)
       if (is.null(xp)) xp <- x
-      x <- scale_input(x, self$param_ranges)
-      xp <- scale_input(xp, self$param_ranges)
-      f_map <- purrr::map_dbl(self$basis_f, purrr::exec, x)
-      f_map_p <- purrr::map_dbl(self$basis_f, purrr::exec, xp)
-      return(f_map %*% self$beta$sigma %*% f_map_p
-        + f_map %*% self$beta_u_cov(xp)
-        + t(self$beta_u_cov(x)) %*% f_map_p
-        + self$u$get_cov(x, xp))
-    },
-    bayes_adjust = function(inputs, outputs) {
-      inputs <- t(apply(inputs, 1, scale_input, self$param_ranges))
-      omega <- apply(inputs, 1, function(x) apply(inputs, 1, function(y) self$u$get_cov(x,y)))
-      O <- chol2inv(chol(omega))
-      G <- t(apply(inputs, 1, function(x) purrr::map_dbl(self$basis_f, ~purrr::exec(.x, c(x)))))
-      GOG <- t(G) %*% O %*% G
-      gls <- chol2inv(chol(GOG)) %*% t(G) %*% O %*% outputs
-      ifelse(all(self$beta$sigma == 0), siginv <- self$beta$sigma, siginv <- chol2inv(chol(self$beta$sigma)))
-      new_beta_var <- chol2inv(chol(GOG + siginv))
-      new_beta_exp <- c(new_beta_var %*% (GOG %*% gls + siginv %*% self$beta$mu))
-      point_cov <- function(x) apply(inputs, 1, function(y) self$u$get_cov(x, y)/sqrt(self$u$get_cov(x) * self$u$get_cov(y)))
-      new_u_exp <- function(x) {
-        return(self$u$get_exp(x)
-               + (self$beta_u_cov(x) %*% t(G) + self$u$get_cov(x) * point_cov(x)) %*% O %*% (outputs - G %*% new_beta_exp))
+      else xp <- eval_funcs(scale_input, xp, ranges)
+      if (is.null(names(xp))) x_xp_c <- eval_funcs(self$corr_func, x, xp)
+      else x_xp_c <- apply(xp, 1, function(y) eval_funcs(self$corr_func, x, y))
+      g_x <- t(eval_funcs(self$basis_f, x))
+      g_xp <- t(eval_funcs(self$basis_f, xp))
+      if (full) {
+        beta_part <- g_x %*% self$beta_sigma %*% t(g_xp)
+        u_part <- self$u_sigma^2 * x_xp_c
       }
-      new_u_var <- function(x, y) {
-        correlations <- function(x) G %*% self$beta_u_cov(x) + self$u$get_cov(x) * point_cov(x)
-        return(self$u$get_cov(x)
-               -t(correlations(x)) %*% (O - O %*% G %*% new_beta_var %*% t(G) %*% O) %*% correlations(y))
+      else
+      {
+        beta_part <- rowSums((g_x %*% self$beta_sigma) * g_xp)
+        u_part <- self$u_sigma^2 * diag(x_xp_c)
       }
-      new_beta_u_cov <- function(x) {
-        siginv %*% new_beta_var %*% self$beta_u_cov(x) - new_beta_var %*% t(G) %*% O %*% point_cov(x) * self$u$get_cov(x)
+      bupart_x <- eval_funcs(self$beta_u_cov, x)
+      bupart_xp <- eval_funcs(self$beta_u_cov, xp)
+      if (!is.null(self$in_data)) {
+        if (is.null(names(x)))
+          c_x <- t(eval_funcs(self$corr_func, self$in_data, x))
+        else
+          c_x <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, x, y))
+        if (is.null(names(xp)))
+          c_xp <- t(eval_funcs(self$corr_func, self$in_data, xp))
+        else
+          c_xp <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, xp, y))
+        if (full)
+          u_part <- u_part - self$u_sigma^2 * c_x %*% (private$data_corrs - private$u_var_modifier) %*% t(c_xp) * self$u_sigma^2
+        else
+          u_part <- u_part - self$u_sigma^2 * rowSums((c_x %*% (private$data_corrs - private$u_var_modifier)) * c_xp) * self$u_sigma^2
+        bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
+        bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
       }
-      new_u <- Correlator$new(new_u_var, new_u_exp)
-      return(Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var), new_u, new_beta_u_cov, n_inputs = self$n_inputs, ranges = self$param_ranges))
+      if (full)
+        bupart <- g_x %*% bupart_xp + t(bupart_x) %*% t(g_xp)
+      else
+        bupart <- rowSums(g_x * t(bupart_xp)) + rowSums(t(bupart_x) * g_xp)
+      return(beta_part + u_part + bupart)
     },
     implausibility = function(x, z) {
-      x <- scale_input(x, self$param_ranges)
-      if (is.numeric(z))
-        output <- list(val = z, sigma = 0)
+      if (is.numeric(z)) output <- list(val = z, sigma = 0)
       else output <- z
       imp_var <- self$get_cov(x) + output$sigma^2
-      return(sqrt((output$val-self$get_exp(x))^2/imp_var))
+      return(sqrt((output$val - self$get_exp(x))^2/imp_var))
+    },
+    adjust = function(data, out_name) {
+      this_data_in <- eval_funcs(scale_input, data[,names(self$ranges)], self$ranges)
+      this_data_out <- data[,out_name]
+      G <- t(eval_funcs(self$basis_f, this_data_in))
+      O <- chol2inv(chol(self$u_sigma^2 * apply(this_data_in, 1, function(y) eval_funcs(self$corr_func, this_data_in, y))))
+      if (all(eigen(self$beta_sigma)$values == 0))
+      {
+        new_beta_var = self$beta_sigma
+        new_beta_exp = self$beta_mu
+      }
+      else
+      {
+        siginv <- chol2inv(chol(self$beta_sigma))
+        new_beta_var <- chol2inv(chol(t(G) %*% O %*% G + siginv))
+        new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + t(G) %*% O %*% this_data_out)
+      }
+      new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
+                             u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr_func),
+                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)])
+      return(new_em)
     },
     print = function(...) {
-      cat("Parameters and ranges: ", paste(names(self$param_ranges), paste0(self$param_ranges), sep = ": ", collapse = "; "), "\n")
+      cat("Parameters and ranges: ", paste(names(self$ranges), paste0(self$ranges), sep = ": ", collapse= "; "), "\n")
       cat("Specifications: \n")
-      cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$param_ranges))), collapse = "; "), "\n")
-      cat("\t Beta - Mu: ", paste(round(self$beta$mu,4), collapse="; "), "\n")
-      cat("\t Beta - Sigma (eigenvalues):", paste(round(eigen(self$beta$sigma)$values,4), collapse="; "), "\n")
+      cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
+      cat("\t Beta Expectation: ", paste(round(self$beta_mu, 4), collapse = "; "), "\n")
+      cat("\t Beta Variance (eigenvalues): ", paste(round(eigen(self$beta_sigma)$values, 4), collapse = "; "), "\n")
       cat("Correlation Structure: \n")
-      cat("\t", self$u$print(), "\n")
+      if (!is.null(private$data_corrs)) cat("Non-stationary covariance - prior specifications below \n")
+      cat("\t Variance: ", self$u_sigma, "\n")
+      cat("\t Expectation: ", self$u_mu(rep(0, length(ranges))), "\n")
+      cat("\t Correlation length: ", sqrt(-0.25/(log(self$corr_func(0,0.5))-log(1-self$delta))), "\n")
+      cat("\t Nugget term: ", self$delta, "\n")
       cat("Mixed covariance: ", self$beta_u_cov(rep(0, length(ranges))), "\n")
     }
   )

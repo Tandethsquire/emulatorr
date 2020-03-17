@@ -28,13 +28,9 @@ where \code{E[f(x)]} is the emulator expectation, and \code{Var[f(x)]} is the em
 at each point \code{x} in \code{X}.
 }
 \examples{
-    out_vars <- c("nS", "nI", "nR")
-    ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
-    base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
-     out_vars, ranges = ranges)
-    trained_emulators <- purrr::map(seq_along(base_emulators),
-     ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
-      GillespieSIR[,out_vars[[.x]]]))
-    standard_errors(trained_emulators[[1]], GillespieValidation[,names(ranges)],
-     GillespieValidation[,'nS'], "nS")
+em <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+ ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+ quadratic = TRUE)[[1]]
+standard_errors(em, GillespieValidation[,1:3], GillespieValidation[,'nS'], 'nS')
+#> (0.7864384, 0.01426296, 0.001072935)
 }

@@ -15,24 +15,26 @@
 #' @export
 #'
 #' @examples
-#'     out_vars <- c("nS", "nI", "nR")
-#'     c_lengths <- c(0.1, 0.085, 0.075)
-#'     ranges <- list(aSI = c(0.1,0.8), aIR = c(0,0.5), aSR = c(0,0.05))
-#'     base_emulators <- emulator_from_data(GillespieSIR, names(ranges),
-#'      out_vars, ranges = ranges, c_lengths = c_lengths)
-#'     trained_emulators <- purrr::map(seq_along(base_emulators),
-#'      ~base_emulators[[.x]]$bayes_adjust(GillespieSIR[,names(ranges)],
-#'       GillespieSIR[,out_vars[[.x]]]))
-#'    target_vals <- c(281, 30, 689)
-#'    target_sigmas <- c(37.26, 11.16, 31.72)
-#'    z_specs <- purrr::map2(target_vals, target_sigmas, ~list(val=.x, sigma=.y))
-#'    nth_implausible(emulators = trained_emulators, x = c(0.4, 0.25, 0.025),
-#'     z = z_specs, n = 2)
+#' ems <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)
+#' targets <- list(
+#'  list(val = 281, sigma = 10.43),
+#'  list(val = 30, sigma = 11.16),
+#'  list(val = 689, sigma = 14.32)
+#' )
+#' nth_implausible(ems, c(0.4, 0.25, 0.025), targets)
+#' grid <- expand.grid(
+#'  aSI = seq(0.1, 0.8, length.out = 4),
+#'  aIR = seq(0, 0.5, length.out = 4),
+#'  aSR = seq(0, 0.05, length.out = 4)
+#' )
+#' nth_implausible(ems, grid, targets, n = 2)
 nth_implausible <- function(emulators, x, z, n = floor(length(emulators)/2), max_imp = 20) {
   if (is.numeric(z))
     output <- purrr::map(z, ~list(val=.x, sigma=0))
   else
     output <- z
-  implausible_list <- sort(purrr::map_dbl(seq_along(emulators), ~min(emulators[[.x]]$implausibility(x, output[[.x]]),max_imp)))
-  return(implausible_list[length(implausible_list)-n+1])
+  implausible_list <- t(apply(matrix(unlist(purrr::map(seq_along(emulators), ~emulators[[.x]]$implausibility(x, z[[.x]]))), ncol = length(emulators)), 1, sort))
+  return(purrr::map_dbl(implausible_list[,length(implausible_list[1,])-n+1], ~min(.x, max_imp)))
 }
