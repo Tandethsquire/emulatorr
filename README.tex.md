@@ -19,19 +19,19 @@ The method of Bayes Linear emulation and history matching is a powerful tool to 
 ### Package Details ###
 **Note: the package is a work in progress! Use with care.**
 
-The package consists of a number of objects (written as R6 classes), and functions that use these objects. For details of usage, see the associated help files and examples therein. The following is a summary.
+The package is composed of an object definition (as an R6 class), and functions that use such objects. For details of usage, see the associated help files and examples therein. The following is a summary.
 
- The R6 classes are
-- ``Correlator``: Encodes the correlation structure for an emulator. A common correlation structure is $\sigma^2 c(x,x')$, where $c(x,x')$ is an exponential-squared function $\exp(-(x-x')^2/\theta^2)$ for some correlation length $\theta$. This is the default correlation structure in this package (implemented as ``exp_sq(x,xp,theta)``); more will be forthcoming, or user-defined functions can be added.
-- ``Emulator``: This is the key object in the package. Given the second-order specifications for $\beta$ and $u(x)$ (namely their expectations, variances, and covariances; some of this will come from the ``Correlator`` object), and the basis functions $g(x)$, an emulator is generated. From this we can find expectation and variance of the emulator at input points; we can use data points from a simulator to train new emulators based on these prior specifications; and we can determine implausibility for a given input against a desired output.
+ The R6 class is
+- ``Emulator``: This is the key object in the package. Given the second-order specifications for $\beta$ and $u(x)$ (namely their expectations, variances, and covariances), and the basis functions $g(x)$, an emulator is generated. From this we can find expectation and variance of the emulator at input points; we can use data points from a simulator to train new emulators based on these prior specifications; and we can determine implausibility for a given input against a desired output. The specifications can be definde by hand, up to and including nugget terms; alternatively, emulators for known data can be derived as a 'first pass' using `emulator_from_data`.
 
 Associated functions (not an exhaustive list):
 - ``emulator_from_data``: Generates basic univariate emulators from simulator data, along with some simple prior information
 - diagnostic functions (``standard_error``, ``comparison_diagnostics``, ...): Shows diagnostic tests on an emulator given a validation set of data
 - ``nth_implausible``: For a collection of outputs, and univariate emulators trained to each, finds the $n$-th maximum implausibility for an input point against a desired set of outputs.
+- ``generate_new_runs``: Given a set of trained emulators, suggests a new set of points to be entered into the simulator.
 
 ### Installation ###
-Not sure! At present, using RStudio with ``devtools`` enabled, the command ``devtools::install_github("Tandethsquire/emulatorr")`` should install it. But this is currently a private repository, so it may not work.
+Not sure! At present, using RStudio with ``devtools`` enabled, the command ``devtools::install_github("Tandethsquire/emulatorr")`` should install it. A PAT will be required: contact me for access if desired.
 
 ### Comments and Suggestions ###
 Suggestions for improvement, and comments on functionality, are welcome. For preference these should be addressed via pull requests and/or issue logging, but if in doubt email andrew.iskauskas@durham.ac.uk.
