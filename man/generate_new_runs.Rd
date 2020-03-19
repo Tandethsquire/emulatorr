@@ -10,7 +10,6 @@ generate_new_runs(
   n_points = 10 * length(ranges),
   z,
   method = "lhs",
-  n_runs = 50,
   cutoff = 3,
   ...
 )
@@ -25,8 +24,6 @@ generate_new_runs(
 \item{z}{Checks implausibility of sample points to restrict to only non-implausible points.}
 
 \item{method}{Any of 'lhs', 'slice', 'optical'.}
-
-\item{n_runs}{Optional. Number of sampling runs to perform. Default = 50}
 
 \item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3}
 

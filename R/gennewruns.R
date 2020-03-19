@@ -32,7 +32,6 @@
 #' @param n_points Optional. Specifies how many additional points are required. Default: 10*(number of emulators)
 #' @param z Checks implausibility of sample points to restrict to only non-implausible points.
 #' @param method Any of 'lhs', 'slice', 'optical'.
-#' @param n_runs Optional. Number of sampling runs to perform. Default = 50
 #' @param cutoff Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3
 #' @param ... Any parameters that need to be passed to a particular method (see above)
 #'
@@ -58,13 +57,13 @@
 #'  method = 'slice', cutoff = 4, x = example_point)
 #' pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
-generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', n_runs = 50, cutoff = 3, ...) {
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', cutoff = 3, ...) {
   if (method == 'lhs')
-    return(lhs_generation(emulators, ranges, n_points, z, n_runs, cutoff))
+    return(lhs_generation(emulators, ranges, n_points, z, cutoff, ...))
   if (method == 'slice')
     return(slice_generation(emulators, ranges, n_points, z, cutoff, ...))
   if (method == 'optical')
-    return(optical_depth_generation(emulators, ranges, n_points, z, n_runs, cutoff, ...))
+    return(optical_depth_generation(emulators, ranges, n_points, z, cutoff, ...))
   stop("Unknown method used. Options are 'lhs', 'slice', 'optical'.")
 }
 

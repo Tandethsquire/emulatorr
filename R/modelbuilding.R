@@ -115,9 +115,9 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #'
 #' @param input_data Required. A \code{data.frame} containing the input parameters and output values
 #' from a set of simulator runs.
-#' @param input_names A list of input_names (if \code{ranges} is not provided).
 #' @param output_names Required. The list of outputs to emulate from \code{input_data}.
 #' @param ranges A named list of parameter ranges.
+#' @param input_names A list of input_names (if \code{ranges} is not provided).
 #' @param beta Optional: specifications for the regression coefficients, given as a list
 #' of lists \code{list(mu, sigma)} (a la \code{\link{Emulator}} specification).
 #' @param u Optional: the correlation structure for each output, given as a list of
@@ -148,7 +148,7 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #'   ranges = ranges, c_lengths = c(0.55, 0.6, 0.59),
 #'   deltas = c(0.1, 0.2, 0.2), quadratic = TRUE)
 #'  ems2 # Broadly the same, but with the correlation structure modified.
-emulator_from_data <- function(input_data, input_names = names(ranges), output_names, ranges, beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {
+emulator_from_data <- function(input_data, output_names, ranges, input_names = names(ranges), beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
     ranges <- purrr::map(input_names, ~c(-1,1))

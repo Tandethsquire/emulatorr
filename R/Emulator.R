@@ -155,7 +155,7 @@ Emulator <- R6::R6Class(
       cat("\t Beta Variance (eigenvalues): ", paste(round(eigen(self$beta_sigma)$values, 4), collapse = "; "), "\n")
       cat("Correlation Structure: \n")
       if (!is.null(private$data_corrs)) cat("Non-stationary covariance - prior specifications below \n")
-      cat("\t Variance: ", self$u_sigma, "\n")
+      cat("\t Variance: ", self$u_sigma^2, "\n")
       cat("\t Expectation: ", self$u_mu(rep(0, length(ranges))), "\n")
       cat("\t Correlation length: ", sqrt(-0.25/(log(self$corr_func(0,0.5))-log(1-self$delta))), "\n")
       cat("\t Nugget term: ", self$delta, "\n")

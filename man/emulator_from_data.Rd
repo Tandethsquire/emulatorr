@@ -6,9 +6,9 @@
 \usage{
 emulator_from_data(
   input_data,
-  input_names = names(ranges),
   output_names,
   ranges,
+  input_names = names(ranges),
   beta,
   u,
   c_lengths,
@@ -22,11 +22,11 @@ emulator_from_data(
 \item{input_data}{Required. A \code{data.frame} containing the input parameters and output values
 from a set of simulator runs.}
 
-\item{input_names}{A list of input_names (if \code{ranges} is not provided).}
-
 \item{output_names}{Required. The list of outputs to emulate from \code{input_data}.}
 
 \item{ranges}{A named list of parameter ranges.}
+
+\item{input_names}{A list of input_names (if \code{ranges} is not provided).}
 
 \item{beta}{Optional: specifications for the regression coefficients, given as a list
 of lists \code{list(mu, sigma)} (a la \code{\link{Emulator}} specification).}
