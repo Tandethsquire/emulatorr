@@ -47,7 +47,7 @@ Emulator <- R6::R6Class(
         private$design_matrix <- t(eval_funcs(self$basis_f, self$in_data))
         private$u_var_modifier <- private$data_corrs %*% private$design_matrix %*% self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
         private$u_exp_modifier <- private$data_corrs %*% (self$out_data - private$design_matrix %*% self$beta_mu)
-        private$beta_u_cov_modifier <- -self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
+        private$beta_u_cov_modifier <- self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
       }
     },
     get_exp = function(x) {
@@ -66,41 +66,58 @@ Emulator <- R6::R6Class(
       x <- eval_funcs(scale_input, x, self$ranges)
       if (is.null(xp)) xp <- x
       else xp <- eval_funcs(scale_input, xp, ranges)
-      if (is.null(names(xp))) x_xp_c <- eval_funcs(self$corr_func, x, xp)
-      else x_xp_c <- apply(xp, 1, function(y) eval_funcs(self$corr_func, x, y))
-      g_x <- t(eval_funcs(self$basis_f, x))
-      g_xp <- t(eval_funcs(self$basis_f, xp))
       if (full) {
+        if (is.null(names(xp)) || length(xp[,names(xp)[1]]) == 1) x_xp_c <- eval_funcs(self$corr_func, x, xp)
+        else x_xp_c <- apply(xp, 1, function(y) eval_funcs(self$corr_func, x, y))
+        g_x <- t(eval_funcs(self$basis_f, x))
+        g_xp <- t(eval_funcs(self$basis_f, xp))
         beta_part <- g_x %*% self$beta_sigma %*% t(g_xp)
         u_part <- self$u_sigma^2 * x_xp_c
-      }
-      else
-      {
-        beta_part <- rowSums((g_x %*% self$beta_sigma) * g_xp)
-        u_part <- self$u_sigma^2 * diag(x_xp_c)
-      }
-      bupart_x <- eval_funcs(self$beta_u_cov, x)
-      bupart_xp <- eval_funcs(self$beta_u_cov, xp)
-      if (!is.null(self$in_data)) {
-        if (is.null(names(x)))
-          c_x <- t(eval_funcs(self$corr_func, self$in_data, x))
-        else
-          c_x <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, x, y))
-        if (is.null(names(xp)))
-          c_xp <- t(eval_funcs(self$corr_func, self$in_data, xp))
-        else
-          c_xp <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, xp, y))
-        if (full)
+        bupart_x <- eval_funcs(self$beta_u_cov, x)
+        bupart_xp <- eval_funcs(self$beta_u_cov, xp)
+        if (!is.null(self$in_data)) {
+          if (is.null(names(x)) || length(x[,names(x)[1]]) == 1) c_x <- t(eval_funcs(self$corr_func, self$in_data, x))
+          else c_x <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, x, y))
+          if (is.null(names(xp)) || length(xp[,names(xp)[1]]) == 1) c_xp <- t(eval_funcs(self$corr_func, self$in_data, xp))
+          else c_xp <- apply(self$in_data, 1, function(y) eval_funcs(self$corr_func, xp, y))
           u_part <- u_part - self$u_sigma^2 * c_x %*% (private$data_corrs - private$u_var_modifier) %*% t(c_xp) * self$u_sigma^2
-        else
-          u_part <- u_part - self$u_sigma^2 * rowSums((c_x %*% (private$data_corrs - private$u_var_modifier)) * c_xp) * self$u_sigma^2
-        bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
-        bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
-      }
-      if (full)
+          bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
+          bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma * t(c_xp))
+        }
         bupart <- g_x %*% bupart_xp + t(bupart_x) %*% t(g_xp)
-      else
-        bupart <- rowSums(g_x * t(bupart_xp)) + rowSums(t(bupart_x) * g_xp)
+      }
+      else {
+        if (length(x) != length(xp)) stop("Can't compute the diagonal elements of a non-square covariance matrix.")
+        if (class(x) == 'numeric' || length(x[,names(x)[1]]) == 1) {
+          beta_part <- t(eval_funcs(self$basis_f, x)) %*% self$beta_sigma %*% eval_funcs(self$basis_f, xp)
+          u_part <- self$u_sigma^2 * self$corr_func(x, xp)
+          bupart_x <- eval_funcs(self$beta_u_cov, x)
+          bupart_xp <- eval_funcs(self$beta_u_cov, xp)
+          if (!is.null(self$in_data)) {
+            c_x <- t(eval_funcs(self$corr_func, self$in_data, x))
+            c_xp <- t(eval_funcs(self$corr_func, self$in_data, xp))
+            u_part <- u_part - self$u_sigma^2 * c_x %*% (private$data_corrs - private$u_var_modifier) %*% t(c_xp) * self$u_sigma^2
+            bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 *t(c_x))
+            bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 *t(c_xp))
+          }
+          bupart <- t(eval_funcs(self$basis_f, x)) %*% bupart_xp + t(bupart_x) %*% eval_funcs(self$basis_f, xp)
+        }
+        else {
+          xseq <- seq_along(x[,1])
+          beta_part <- purrr::map_dbl(xseq, ~t(eval_funcs(self$basis_f, x[.x,])) %*% self$beta_sigma %*% eval_funcs(self$basis_f, xp[.x,]))
+          u_part <- purrr::map_dbl(xseq, ~self$corr_func(x[.x,], xp[.x,])) * self$u_sigma^2
+          bupart_x <- eval_funcs(self$beta_u_cov, x)
+          bupart_xp <- eval_funcs(self$beta_u_cov, xp)
+          if (!is.null(self$in_data)) {
+            c_x <- t(apply(x, 1, function(y) eval_funcs(self$corr_func, self$in_data, y)))
+            c_xp <- t(apply(xp, 1, function(y) eval_funcs(self$corr_func, self$in_data, y)))
+            u_part <- u_part - self$u_sigma^2 * rowSums((c_x %*% (private$data_corrs - private$u_var_modifier)) * c_xp) * self$u_sigma^2
+            bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
+            bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
+          }
+          bupart <- purrr::map_dbl(xseq, ~t(eval_funcs(self$basis_f, x[.x,])) %*% bupart_xp[,.x] + t(bupart_x[,.x]) %*% eval_funcs(self$basis_f, xp[.x,]))
+        }
+      }
       return(beta_part + u_part + bupart)
     },
     implausibility = function(x, z) {
