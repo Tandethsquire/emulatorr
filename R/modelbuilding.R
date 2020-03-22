@@ -204,5 +204,5 @@ emulator_from_data <- function(input_data, output_names, ranges, input_names = n
     out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], ranges = ranges, delta = model_deltas[[.x]]))
   else
     out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], bucov = bucov, ranges = ranges, delta = model_deltas[[.x]]))
-  return(out_ems)
+  return(setNames(out_ems, output_names))
 }

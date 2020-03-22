@@ -108,7 +108,7 @@ slice_generation <- function(emulators, ranges, n_points, z, cutoff = 3, x) {
     out_points <- cbind(out_points, x_new)
     x0 <- x_new
   }
-  return(setNames(data.frame(t(out_points), row.names = NULL), names(ranges)))
+  return(setNames(data.frame(t(out_points), row.names = NULL), names(ranges))[2:n_points+1,])
 }
 
 # A function to perform optical depth sampling
