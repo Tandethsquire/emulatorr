@@ -10,6 +10,7 @@ full_wave(
   ranges,
   output_names,
   targets,
+  n_points = 40,
   previous_wave = NULL,
   sample_method = "lhs",
   ...
@@ -25,6 +26,8 @@ full_wave(
 \item{output_names}{The names of the outputs to emulate.}
 
 \item{targets}{The observations, given in the usual \code{(val, sigma)} form}
+
+\item{n_points}{The number of points to evaluate the parameters on.}
 
 \item{previous_wave}{The preliminary emulators for the set of waves, if they exist}
 

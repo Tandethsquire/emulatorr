@@ -27,6 +27,7 @@
 #' @param ranges The ranges of the inputs, as a named list.
 #' @param output_names The names of the outputs to emulate.
 #' @param targets The observations, given in the usual \code{(val, sigma)} form
+#' @param n_points The number of points to evaluate the parameters on.
 #' @param previous_wave The preliminary emulators for the set of waves, if they exist
 #' @param sample_method The method to be used to find new points (see \code{\link{generate_new_runs}})
 #' @param ... Any optional parameters to pass to \code{\link{emulator_from_data}}
@@ -34,7 +35,7 @@
 #' @return A list of base emulators, trained emulators for this wave, new sample points, and new ranges.
 #' @export
 
-full_wave <- function(input_data, validation_data, ranges, output_names, targets, previous_wave = NULL, sample_method = 'lhs', ...) {
+full_wave <- function(input_data, validation_data, ranges, output_names, targets, n_points = 40, previous_wave = NULL, sample_method = 'lhs', ...) {
   targets <- setNames(targets, output_names)
   if (is.null(previous_wave))
     base_emulators <- emulator_from_data(input_data, output_names, ranges, ...)
@@ -62,7 +63,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
     seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = npoints))
     return(setNames(expand.grid(seqs), names(ranges)))
   }
-  eval_grid <- makeGrid(ranges, 40)
+  eval_grid <- makeGrid(ranges, n_points)
   imps <- nth_implausible(trained_emulators, eval_grid, targets)
   imp_data <- setNames(data.frame(cbind(eval_grid, imps)), c(names(ranges), "I"))
   p_set <- imp_data[imp_data$I<=3,]
