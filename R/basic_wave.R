@@ -42,7 +42,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
   else
     base_emulators <- previous_wave$base_emulators
   trained_emulators <- setNames(purrr::map(seq_along(base_emulators), ~base_emulators[[.x]]$adjust(input_data, output_names[[.x]])), output_names)
-  print("Running diagnostics...")
+  cat("Running diagnostics...")
   diaglist <- list()
   for (i in 1:length(trained_emulators)) {
     diagdata <- comparison_diagnostics(trained_emulators[[i]], validation_data[,names(ranges)], validation_data[,output_names[[i]]], plt = F)
@@ -58,7 +58,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
     }
   }
   if (length(trained_emulators) < length(output_names)/2) stop("Not enough outputs can be emulated.")
-  print("Completed diagnostics. Finding non-implausible region...")
+  cat("Completed diagnostics. Finding non-implausible region...")
   makeGrid <- function(ranges, npoints) {
     seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = npoints))
     return(setNames(expand.grid(seqs), names(ranges)))
@@ -68,7 +68,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
   imp_data <- setNames(data.frame(cbind(eval_grid, imps)), c(names(ranges), "I"))
   p_set <- imp_data[imp_data$I<=3,]
   new_ranges <- lapply(p_set[,names(ranges)], function(x) c(min(x), max(x)))
-  print("Generating new sample points...")
+  cat("Generating new sample points...")
   if (sample_method == 'lhs')
     new_points <- generate_new_runs(trained_emulators, new_ranges, z = targets)
   else if (sample_method == 'slice') {

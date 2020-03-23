@@ -144,7 +144,7 @@ Emulator <- R6::R6Class(
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr_func),
-                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)])
+                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)], delta = self$delta)
       return(new_em)
     },
     print = function(...) {
