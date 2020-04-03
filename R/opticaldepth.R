@@ -38,9 +38,10 @@
 #'  emulators = trained_ems, cutoff = 2, n = 2)
 optical_depth <- function(targets, ranges, points_per_dim, plot_vars = names(ranges)[1:2], emulators = NULL, imps = NULL, cutoff = 3, ...) {
   dim_seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = points_per_dim))
-  eval_grid <- expand.grid(dim_seqs)
+  if (is.null(imps)) eval_grid <- expand.grid(dim_seqs)
+  else eval_grid <- imps[,names(ranges)]
   if (is.null(imps)) imp_list <- nth_implausible(emulators, eval_grid, targets, ...)
-  else imp_list <- imps
+  else imp_list <- imps$I
   if (length(plot_vars) == 2) {
     centers_1 <- round(seq((dim_seqs[[plot_vars[[1]]]][[1]]+dim_seqs[[plot_vars[[1]]]][[2]])/2, (dim_seqs[[plot_vars[[1]]]][[points_per_dim]]+dim_seqs[[plot_vars[[1]]]][[points_per_dim-1]])/2, length.out = points_per_dim-1),4)
     centers_2 <- round(seq((dim_seqs[[plot_vars[[2]]]][[1]]+dim_seqs[[plot_vars[[2]]]][[2]])/2, (dim_seqs[[plot_vars[[2]]]][[points_per_dim]]+dim_seqs[[plot_vars[[2]]]][[points_per_dim-1]])/2, length.out = points_per_dim-1),4)
@@ -103,9 +104,10 @@ optical_depth <- function(targets, ranges, points_per_dim, plot_vars = names(ran
 #'  emulators = trained_ems, n = 2, max_imp = 30)
 min_implausibility <- function(targets, ranges, points_per_dim, plot_vars=names(ranges)[1:2], emulators = NULL, imps = NULL, ...) {
   dim_seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = points_per_dim))
-  eval_grid <- expand.grid(dim_seqs)
+  if (is.null(imps)) eval_grid <- expand.grid(dim_seqs)
+  else eval_grid <- imps[,names(ranges)]
   if (is.null(imps)) imp_list <- nth_implausible(emulators, eval_grid, targets, ...)
-  else imp_list <- imps
+  else imp_list <- imps$I
   centers_1 <- round(seq((dim_seqs[[plot_vars[[1]]]][[1]]+dim_seqs[[plot_vars[[1]]]][[2]])/2, (dim_seqs[[plot_vars[[1]]]][[points_per_dim]]+dim_seqs[[plot_vars[[1]]]][[points_per_dim-1]])/2, length.out = points_per_dim-1),4)
   centers_2 <- round(seq((dim_seqs[[plot_vars[[2]]]][[1]]+dim_seqs[[plot_vars[[2]]]][[2]])/2, (dim_seqs[[plot_vars[[2]]]][[points_per_dim]]+dim_seqs[[plot_vars[[2]]]][[points_per_dim-1]])/2, length.out = points_per_dim-1),4)
   lvls_1 <- cut(eval_grid[[plot_vars[[1]]]], points_per_dim-1, centers_1)

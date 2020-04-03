@@ -36,6 +36,7 @@ get_linear_model <- function(data, ranges, output_name, add = FALSE) {
       }
     }
   }
+  #message(cat("Adjusted R-squared:", summary(model)$adj.r.squared))
   return(model)
 }
 
@@ -80,6 +81,7 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
       }
     }
   }
+  #message(cat("Adjusted R-squared:", summary(model)$adj.r.squared))
   return(model)
 }
 
@@ -193,8 +195,7 @@ emulator_from_data <- function(input_data, output_names, ranges, input_names = n
   else {
     model_u_sigmas <- purrr::map(u, ~.x$sigma)
     model_u_mus <- purrr::map(u, ~.x$mu)
-    model_u_thetas <- purrr::map(u, ~.x$theta)
-    model_u_corr_funcs <- purrr::map(u, ~.x$corr)
+    model_u_corr_funcs <- purrr::map(u, ~function(x,xp) .x$corr(x, xp, .x$theta))
   }
   model_us <- purrr::map(seq_along(model_u_sigmas), ~list(mu = model_u_mus[[.x]], sigma = model_u_sigmas[[.x]], corr = model_u_corr_funcs[[.x]]))
   model_betas <- purrr::map(seq_along(model_beta_mus), ~list(mu = model_beta_mus[[.x]], sigma = model_beta_sigmas[[.x]]))

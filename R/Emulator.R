@@ -150,7 +150,7 @@ Emulator <- R6::R6Class(
     print = function(...) {
       cat("Parameters and ranges: ", paste(names(self$ranges), paste0(self$ranges), sep = ": ", collapse= "; "), "\n")
       cat("Specifications: \n")
-      cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
+      #cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
       cat("\t Beta Expectation: ", paste(round(self$beta_mu, 4), collapse = "; "), "\n")
       cat("\t Beta Variance (eigenvalues): ", paste(round(eigen(self$beta_sigma)$values, 4), collapse = "; "), "\n")
       cat("Correlation Structure: \n")
