@@ -143,3 +143,90 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
     labs(title = "Emulator runs vs. Observations")
   return(g)
 }
+
+#' Implausibility Plots
+#'
+#' Generates implausibility plots: either optical depth, or minimum implausibility.
+#' Simply a plot wrapper to make later things easier for lattice plots, etc.
+#' However, it does have value in and of itself.
+#'
+#' @importFrom ggplot2 geom_raster geom_smooth ggplot theme_dark theme element_text element_blank
+#' @importFrom stats loess
+#'
+#' @param df A data.frame containing the inputs and implausibilities
+#' @param names A list of names for the inputs.
+#' @param nvars The number of variables in the plotting region: either 1 or 2.
+#' @param min Should minimum implausibility be plotted? Default: FALSE
+#' @param ticks Are axis ticks required? Default: FALSE
+#'
+#' @return A ggplot object
+#' @export
+#'
+plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
+  Minimum <- Proportion <- NULL
+  impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3)
+  if (min)
+  {
+    g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
+      geom_raster(aes(fill = Minimum), interpolate = TRUE) +
+      scale_fill_gradient2(low = '#00FF00', mid = '#AAFF00', high = '#FFFF00', midpoint = 2, breaks = impbrks, labels = NULL) +
+      labs(x = names[1], y = names[2])
+  }
+  else if (nvars == 1)
+  {
+    g <- ggplot(data = df, aes(x = df[,names], y = Proportion, group = 1)) +
+      ggplot2::geom_smooth(formula = y~x, method = stats::loess, se = FALSE, color = 'white') +
+      theme_dark() +
+      labs(x = names, y = "Optical Depth")
+    #ylim(0,0.1)
+  }
+  else if (nvars == 2)
+  {
+    g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
+      geom_raster(aes(fill = Proportion), interpolate = TRUE) +
+      labs(x = names[1], y = names[2])
+  }
+  if (ticks)
+    return(g + theme(axis.text.x = element_text(angle = 90)))
+  else
+    return(g + theme(legend.position = "none", axis.ticks = element_blank(), axis.text = element_blank()))
+}
+
+#' Implausibility Plot Lattice
+#'
+#' Creates a lattice of plots, consisting of optical depths (both univariate and
+#' two-variable projections), and minimum implausibility.
+#' It is advisable to pass no more than 6 input parameter names to this function,
+#' as the graphs will be too small for meaningful analysis if more are provided.
+#'
+#' @importFrom purrr map
+#' @importFrom utils combn
+#' @importFrom cowplot ggdraw draw_plot
+#'
+#' @param implausibilities A list of implausibilities for input points
+#' @param targets A list of observations, given in the usual form
+#' @param ranges The ranges of each of the input parameters.
+#' @param np The number of bins in each part of the plot grids
+#' @param ... Any additional inputs (to be passed to \code{\link{optical_depth}})
+#'
+#' @return A ggplot object
+#' @export
+#'
+plot_lattice <- function(implausibilities, targets, ranges, np = 50, ...) {
+  nvars <- length(names(ranges))
+  name_set <- t(combn(names(ranges), 2))
+  coord_set <- t(combn(seq_along(names(ranges)), 2))
+  d_od <- apply(name_set, 1, function(x) optical_depth(targets, ranges, np, plot_vars = x, imps = implausibilities, ...))
+  s_od <- map(names(ranges), ~optical_depth(targets, ranges, np, plot_vars = .x, imps = implausibilities, ...))
+  d_min <- apply(name_set, 1, function(x) min_implausibility(targets, ranges, np, plot_vars = x, imps = implausibilities, ...))
+  plots_s <- map(seq_along(names(ranges)), ~list(plt = plot_implausible(s_od[[.x]], names(ranges)[.x], 1), x = .x-1, y = .x-1))
+  plots_d <- map(seq_along(name_set[,1]), ~list(plt = plot_implausible(d_od[[.x]], name_set[.x,], 2), x = coord_set[.x,1]-1, y = coord_set[.x,2]-1))
+  plots_m <- map(seq_along(name_set[,1]), ~list(plt = plot_implausible(d_min[[.x]], name_set[.x,], 2, min = TRUE), x = coord_set[.x,2]-1, y = coord_set[.x,1]-1))
+  tot_plots <- c(plots_s, plots_d, plots_m)
+  plot_out <- ggdraw()
+  for (i in 1:length(tot_plots)) {
+    to_plot <- tot_plots[[i]]
+    plot_out <- plot_out + draw_plot(to_plot$plt, x = to_plot$x/nvars, y = to_plot$y/nvars, width = 1/nvars, height = 1/nvars)
+  }
+  return(plot_out)
+}

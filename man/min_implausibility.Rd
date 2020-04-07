@@ -7,7 +7,7 @@
 min_implausibility(
   targets,
   ranges,
-  points_per_dim,
+  points_per_dim = 50,
   plot_vars = names(ranges)[1:2],
   emulators = NULL,
   imps = NULL,
