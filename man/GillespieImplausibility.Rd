@@ -4,7 +4,8 @@
 \name{GillespieImplausibility}
 \alias{GillespieImplausibility}
 \title{Sample Implausibility Data}
-\format{A data frame with 1000 rows and 7 variables:
+\format{
+A data frame with 1000 rows and 7 variables:
 \describe{
   \item{aSI}{Infection: transition rate from S to I}
   \item{aIR}{Recovery: transition rate from I to R}
@@ -13,7 +14,8 @@
   \item{nI}{Implausibility for nI}
   \item{nR}{Implausibility for nR}
   \item{I2}{Second-maximum implausibility}
-}}
+}
+}
 \usage{
 GillespieImplausibility
 }

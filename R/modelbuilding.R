@@ -36,7 +36,6 @@ get_linear_model <- function(data, ranges, output_name, add = FALSE) {
       }
     }
   }
-  #message(cat("Adjusted R-squared:", summary(model)$adj.r.squared))
   return(model)
 }
 
@@ -81,7 +80,6 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
       }
     }
   }
-  #message(cat("Adjusted R-squared:", summary(model)$adj.r.squared))
   return(model)
 }
 
@@ -202,8 +200,8 @@ emulator_from_data <- function(input_data, output_names, ranges, input_names = n
   if (missing(deltas)) model_deltas <- rep(0, length(output_names))
   else model_deltas <- deltas
   if (missing(bucov))
-    out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], ranges = ranges, delta = model_deltas[[.x]]))
+    out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], ranges = ranges, delta = model_deltas[[.x]], model = models[[.x]]))
   else
-    out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], bucov = bucov, ranges = ranges, delta = model_deltas[[.x]]))
+    out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], bucov = bucov, ranges = ranges, delta = model_deltas[[.x]], model = models[[.x]]))
   return(setNames(out_ems, output_names))
 }

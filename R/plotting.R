@@ -104,3 +104,42 @@ emulator_plot <- function(em, var = 'exp', npoints = 40, targets = NULL, ...) {
     return(g + facet_wrap(~variable, ncol = 2) + labs(title = title) + xlab(names(em[[1]]$ranges)[[1]]) + ylab(names(em[[1]]$ranges)[[2]]))
   }
 }
+
+#' Emulator Plots with Outputs
+#'
+#' Plots emulator outputs across a set of points, with the corresponding observations
+#' overlaid (with the appropriate uncertainty).
+#' If no points are provided, then \code{npoints} points are uniformly sampled from the
+#' input region. Else the provided points are used - for example, if a non-implausible
+#' space is known.
+#'
+#' @importFrom ggplot2 ggplot aes labs geom_line geom_point geom_errorbar
+#' @importFrom reshape2 melt
+#' @importFrom purrr %>%
+#'
+#' @param emulators A list of \code{\link{Emulator}} objects
+#' @param targets A named list of observations, given in the usual form
+#' @param points A list of points at which the emulators should be evaluated. Default: \code{NULL}
+#' @param npoints If no points provided, how many input points to evaluate? Default: 1000
+#'
+#' @return A ggplot object.
+#' @export
+#'
+output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
+  if (is.null(points)) {
+    ranges <- purrr::map(emulators, ~.x$ranges) %>% setNames(names(targets))
+    points <- data.frame(purrr::map(ranges, ~runif(npoints, .x[1], .x[2])))
+  }
+  em_exp <- data.frame(purrr::map(emulators, ~.x$get_exp(points))) %>% setNames(names(targets))
+  em_exp$run <- 1:length(points[,1])
+  em_exp <- reshape2::melt(em_exp, id.vars = 'run')
+  target_df <- data.frame(label = names(targets), mu = purrr::map_dbl(targets, ~.x$val), sigma = purrr::map_dbl(targets, ~.x$sigma))
+  g <- ggplot(data = em_exp, aes(x = em_exp$variable, y = em_exp$value)) +
+    geom_line(colour = "purple", aes(group = em_exp$run)) +
+    geom_point(data = target_df, aes(x = target_df$label, y = target_df$mu), size = 2) +
+    geom_errorbar(data = target_df, aes(x = target_df$label, y = target_df$mu,
+                                        ymin = target_df$mu-3*target_df$sigma,
+                                        ymax = target_df$mu+3*target_df$sigma), width = .1, size = 1.25) +
+    labs(title = "Emulator runs vs. Observations")
+  return(g)
+}

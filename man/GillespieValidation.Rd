@@ -4,7 +4,8 @@
 \name{GillespieValidation}
 \alias{GillespieValidation}
 \title{Sample SIR validation data}
-\format{A data frame with 60 rows and 6 variables:
+\format{
+A data frame with 60 rows and 6 variables:
 \describe{
   \item{aSI}{Infection: transition rate from S to I}
   \item{aIR}{Recovery: transition rate from I to R}
@@ -12,7 +13,8 @@
   \item{nS}{Final number of S}
   \item{nI}{Final number of I}
   \item{nR}{Final number of R}
-}}
+}
+}
 \usage{
 GillespieValidation
 }

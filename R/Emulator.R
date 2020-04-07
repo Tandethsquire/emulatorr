@@ -19,7 +19,9 @@ Emulator <- R6::R6Class(
     out_data = NULL,
     ranges = NULL,
     delta = NULL,
-    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0) {
+    model = NULL,
+    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL) {
+      self$model <- model
       self$basis_f <- basis_f
       self$beta_mu <- beta$mu
       self$beta_sigma <- beta$sigma
@@ -150,7 +152,10 @@ Emulator <- R6::R6Class(
     print = function(...) {
       cat("Parameters and ranges: ", paste(names(self$ranges), paste0(self$ranges), sep = ": ", collapse= "; "), "\n")
       cat("Specifications: \n")
-      #cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
+      if (is.null(self$model))
+        cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
+      else
+        cat("\t Basic Functions: ", paste0(names(self$model$coefficients), collapse=", "), ";\n")
       cat("\t Beta Expectation: ", paste(round(self$beta_mu, 4), collapse = "; "), "\n")
       cat("\t Beta Variance (eigenvalues): ", paste(round(eigen(self$beta_sigma)$values, 4), collapse = "; "), "\n")
       cat("Correlation Structure: \n")
