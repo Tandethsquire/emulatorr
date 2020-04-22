@@ -48,6 +48,7 @@ Emulator <- R6::R6Class(
       if (is.null(ranges)) stop("Ranges for the parameters must be specified.")
       if (!is.null(data)) {
         self$in_data <- eval_funcs(scale_input, data[,names(self$ranges)], self$ranges)
+        if (length(dim(self$in_data)) == 0) self$in_data <- matrix(self$in_data, nrow = length(self$in_data))
         self$out_data <- data[, !(names(data) %in% names(self$ranges))]
       }
       if (!is.null(self$in_data))
@@ -137,6 +138,7 @@ Emulator <- R6::R6Class(
     },
     adjust = function(data, out_name) {
       this_data_in <- eval_funcs(scale_input, data[,names(self$ranges)], self$ranges)
+      if (length(dim(this_data_in)) == 0) this_data_in <- matrix(this_data_in, nrow = length(this_data_in))
       this_data_out <- data[,out_name]
       G <- t(eval_funcs(self$basis_f, this_data_in))
       O <- chol2inv(chol(self$u_sigma^2 * apply(this_data_in, 1, function(y) eval_funcs(self$corr_func, this_data_in, y))))
