@@ -101,7 +101,7 @@ slice_generation <- function(emulators, ranges, n_points, z, cutoff = 3, x) {
       xr = ranges[[j]][2]
       repeat {
         x_new[j] <- runif(1, min = xl, max = xr)
-        if (nth_implausible(emulators, matrix(x_new, nrow = 1), z)<=cutoff) break
+        if (nth_implausible(emulators, x_new, z)<=cutoff) break
         else ifelse(x_new[j]<x0[j], xl <- x_new[j], xr <- x_new[j])
       }
     }

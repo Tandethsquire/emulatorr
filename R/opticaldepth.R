@@ -101,7 +101,7 @@ optical_depth <- function(targets, ranges, points_per_dim, plot_vars = names(ran
 #'   ~first_ems[[.x]]$adjust(GillespieSIR, out_vars[[.x]]))
 #'  min_implausibility(targets, ranges, 5, emulators = trained_ems)
 #'  min_implausibility(targets, ranges, 5, plot_vars = c('aIR', 'aSR'),
-#'   emulators = trained_ems, n = 2, max_imp = 30)
+#'  emulators = trained_ems, n = 2, max_imp = 30)
 min_implausibility <- function(targets, ranges, points_per_dim = 50, plot_vars=names(ranges)[1:2], emulators = NULL, imps = NULL, ...) {
   dim_seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = points_per_dim))
   if (is.null(imps)) eval_grid <- expand.grid(dim_seqs)
