@@ -17,9 +17,12 @@ Emulator <- R6::R6Class(
     beta_u_cov = NULL,
     in_data = NULL,
     out_data = NULL,
+    theta = NULL,
     ranges = NULL,
     delta = NULL,
     model = NULL,
+    active_vars = NULL,
+    corr = NULL,
     initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL) {
       self$model <- model
       self$basis_f <- basis_f
@@ -28,15 +31,19 @@ Emulator <- R6::R6Class(
       self$u_mu <- u$mu
       self$u_sigma <- u$sigma
       self$delta <- delta
+      self$corr <- u$corr
+      self$active_vars <- purrr::map_lgl(seq_along(ranges), function(x) {
+        is_in_func <- eval_funcs(self$basis_f, c(rep(0,x-1), 1, rep(0, length(ranges)-x))) == 1
+        length(is_in_func[is_in_func]) > 1
+      })
       self$corr_func <- function(x, xp) {
         if (sum((x-xp)^2) < 0.0001) extra <- 1
         else extra <- 0
-        (1-delta) * u$corr(x, xp) + delta * extra
+        (1-delta) * u$corr(x[self$active_vars], xp[self$active_vars]) + delta * extra
       }
-      if (is.null(bucov))
-        self$beta_u_cov <- function(x) rep(0, length(self$beta_mu))
-      else
-        self$beta_u_cov <- bucov
+      if (is.null(bucov)) self$beta_u_cov <- function(x) rep(0, length(self$beta_mu))
+      else self$beta_u_cov <- bucov
+      self$theta <- sqrt(-0.25/(log(u$corr(0, 0.5)) - log(1-delta)))
       self$ranges <- ranges
       if (is.null(ranges)) stop("Ranges for the parameters must be specified.")
       if (!is.null(data)) {
@@ -145,7 +152,7 @@ Emulator <- R6::R6Class(
         new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + t(G) %*% O %*% this_data_out)
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
-                             u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr_func),
+                             u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
                              bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)], delta = self$delta)
       return(new_em)
     },
@@ -155,14 +162,15 @@ Emulator <- R6::R6Class(
       if (is.null(self$model))
         cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
       else
-        cat("\t Basic Functions: ", paste0(names(self$model$coefficients), collapse=", "), ";\n")
+        cat("\t Basic Functions: ", paste0(names(self$model$coefficients), collapse="; "), "\n")
+      cat("\t Active variables: ", paste0(names(self$ranges)[self$active_vars], collapse="; "), "\n")
       cat("\t Beta Expectation: ", paste(round(self$beta_mu, 4), collapse = "; "), "\n")
       cat("\t Beta Variance (eigenvalues): ", paste(round(eigen(self$beta_sigma)$values, 4), collapse = "; "), "\n")
       cat("Correlation Structure: \n")
       if (!is.null(private$data_corrs)) cat("Non-stationary covariance - prior specifications below \n")
       cat("\t Variance: ", self$u_sigma^2, "\n")
       cat("\t Expectation: ", self$u_mu(rep(0, length(ranges))), "\n")
-      cat("\t Correlation length: ", sqrt(-0.25/(log(self$corr_func(0,0.5))-log(1-self$delta))), "\n")
+      cat("\t Correlation length: ", self$theta, "\n")
       cat("\t Nugget term: ", self$delta, "\n")
       cat("Mixed covariance: ", self$beta_u_cov(rep(0, length(ranges))), "\n")
     }

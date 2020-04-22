@@ -134,12 +134,13 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
   em_exp$run <- 1:length(points[,1])
   em_exp <- reshape2::melt(em_exp, id.vars = 'run')
   target_df <- data.frame(label = names(targets), mu = purrr::map_dbl(targets, ~.x$val), sigma = purrr::map_dbl(targets, ~.x$sigma))
-  g <- ggplot(data = em_exp, aes(x = em_exp$variable, y = em_exp$value)) +
-    geom_line(colour = "purple", aes(group = em_exp$run)) +
-    geom_point(data = target_df, aes(x = target_df$label, y = target_df$mu), size = 2) +
-    geom_errorbar(data = target_df, aes(x = target_df$label, y = target_df$mu,
-                                        ymin = target_df$mu-3*target_df$sigma,
-                                        ymax = target_df$mu+3*target_df$sigma), width = .1, size = 1.25) +
+  variable <- value <- run <- mu <- sigma <- label <- NULL
+  g <- ggplot(data = em_exp, aes(x = variable, y = value)) +
+    geom_line(colour = "purple", aes(group = run)) +
+    geom_point(data = target_df, aes(x = label, y = mu), size = 2) +
+    geom_errorbar(data = target_df, aes(x = label, y = mu,
+                                        ymin = mu-3*sigma,
+                                        ymax = mu+3*sigma), width = .1, size = 1.25) +
     labs(title = "Emulator runs vs. Observations")
   return(g)
 }
