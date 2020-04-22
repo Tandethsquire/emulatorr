@@ -107,8 +107,8 @@ ranges <- list(a = c(-0.5, 0.5), b = c(-1, 2))
 em <- Emulator$new(basis_functions, beta, u, ranges)
 em
 # Individual evaluations of points
-em$get_exp(c(0.1, 0.1)) #> 0.6
-em$get_cov(c(0.1, 0.1)) #> 9.5
+em$get_exp(matrix(c(0.1, 0.1), nrow = 1)) #> 0.6
+em$get_cov(matrix(c(0.1, 0.1), nrow = 1)) #> 9.5
 # 4x4 grid of points
 sample_points <- expand.grid(a = seq(-0.5, 0.5, length.out = 4), b = seq(-1, 2, length.out = 4))
 em$get_exp(sample_points) # Returns 16 expectations
@@ -121,8 +121,8 @@ b_u_cov <- function(x) c(1, x[[1]], x[[1]]*x[[2]])
 del <- 0.1
 all_specs_em <- Emulator$new(basis_functions, beta, u, ranges,
  bucov = b_u_cov, delta = del)
-all_specs_em$get_exp(c(0.1, 0.1)) #> 0.6
-all_specs_em$get_cov(c(0.1, 0.1)) #> 11.60844
+all_specs_em$get_exp(matrix(c(0.1, 0.1), nrow = 1)) #> 0.6
+all_specs_em$get_cov(matrix(c(0.1, 0.1), nrow = 1)) #> 11.60844
 
 fake_data <- data.frame(a = runif(10, -0.5, 0.5), b = runif(10, -1, 2))
 fake_data$c <- fake_data$a + 2*fake_data$b

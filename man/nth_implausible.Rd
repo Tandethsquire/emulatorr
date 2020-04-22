@@ -4,7 +4,13 @@
 \alias{nth_implausible}
 \title{n-th Maximum Implausibility}
 \usage{
-nth_implausible(emulators, x, z, n = floor(length(emulators)/2), max_imp = 20)
+nth_implausible(
+  emulators,
+  x,
+  z,
+  n = min(2, floor(length(emulators)/2)),
+  max_imp = 20
+)
 }
 \arguments{
 \item{emulators}{A set of \code{\link{Emulator}} objects.}

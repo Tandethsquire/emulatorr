@@ -55,5 +55,5 @@ One or two target directions can be specified.
   ~first_ems[[.x]]$adjust(GillespieSIR, out_vars[[.x]]))
  min_implausibility(targets, ranges, 5, emulators = trained_ems)
  min_implausibility(targets, ranges, 5, plot_vars = c('aIR', 'aSR'),
- emulators = trained_ems, n = 2, max_imp = 30)
+  emulators = trained_ems, n = 2, max_imp = 30)
 }

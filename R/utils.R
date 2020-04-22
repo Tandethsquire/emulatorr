@@ -1,7 +1,7 @@
 # Scales inputs: important since the emulators should take inputs purely in [-1,1]
 scale_input <- function(x, r, forward = TRUE) {
-  centers <- purrr::map(r, ~(.x[2]+.x[1])/2)
-  scales <- purrr::map(r, ~(.x[2]-.x[1])/2)
+  centers <- purrr::map_dbl(r, ~(.x[2]+.x[1])/2)
+  scales <- purrr::map_dbl(r, ~(.x[2]-.x[1])/2)
   if (is.null(names(x))) {
     centers <- unlist(centers, use.names = F)
     scales <- unlist(scales, use.names = F)
@@ -29,19 +29,13 @@ function_to_names <- function(f, var_names) {
   }
 }
 
-# Evaluate multiple functions over points
+# Wrapper for evaluating multiple functions over multiple points
 eval_funcs <- function(funcs, points, ...) {
-  output <- NULL
+  if (class(points) != "data.frame" && length(dim(points)) == 0) points <- matrix(points, nrow = length(points))
   if (typeof(funcs) == "closure")
-  {
-    try(output <- apply(points, 1, funcs, ...), silent = TRUE)
-    if (is.null(output)) try(output <- purrr::exec(funcs, points, ...), silent = TRUE)
-  }
+    output <- apply(points, 1, funcs, ...)
   else
-  {
-    try(output <- apply(points, 1, function(x) purrr::map_dbl(funcs, purrr::exec, x, ...)), silent = TRUE)
-    if(is.null(output)) try(output <- purrr::map_dbl(funcs, purrr::exec, points, ...), silent = TRUE)
-  }
-  if(is.null(output)) stop("Could not evaluate functions at points.")
+    output <- apply(points, 1, function(x) sapply(funcs, purrr::exec, x))
+  if (length(dim(output)) != 0) return(t(output))
   return(output)
 }

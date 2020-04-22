@@ -99,8 +99,9 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #' The basis functons and regression coefficients are generated using the \code{lm} function using
 #' either only linear terms or up to quadratic terms (dependent on the value of \code{quadratic}),
 #' performing stepwise add or delete as appropriate; in either event, the AIC criteria is used to
-#' select the terms. The regression parameters thus derived are assumed to be known, so that
-#' \code{beta$sigma = diag(0)}.
+#' select the terms. The regression parameters thus derived are assumed to be known if
+#' \code{beta.var = FALSE}, so that \code{beta$sigma = diag(0)}. Otherwise, the covariance matrix
+#' for the parameters is taken from \code{vcov(model)}.
 #'
 #' The correlation function c(x,x') is taken to be \code{\link{exp_sq}}; the correlation length is
 #' chosen using the Durham heuristic: this states that the correlation length should lie within
@@ -128,6 +129,7 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #' parameters and u(x).
 #' @param deltas Optional: the nugget terms to include in u(x).
 #' @param quadratic Optional: should the regression surface be linear or quadratic? Default: F
+#' @param beta.var Should the beta coefficients be assumed to be known or should the model variance be included?
 #'
 #' @return A list of objects of class \code{\link{Emulator}}.
 #' @export
@@ -148,7 +150,15 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #'   ranges = ranges, c_lengths = c(0.55, 0.6, 0.59),
 #'   deltas = c(0.1, 0.2, 0.2), quadratic = TRUE)
 #'  ems2 # Broadly the same, but with the correlation structure modified.
-emulator_from_data <- function(input_data, output_names, ranges, input_names = names(ranges), beta, u, c_lengths, funcs, bucov, deltas, quadratic=F) {
+#'
+#'  ems2_beta <- emulator_from_data(GillespieSIR, output_names = out_vars,
+#'   ranges = ranges, c_lengths = c(0.55, 0.6, 0.59),
+#'   deltas = c(0.1, 0.2, 0.2), quadratic = TRUE, beta.var = TRUE)
+#'  ems2_beta # Now the beta variance from lm is included.
+emulator_from_data <- function(input_data, output_names, ranges,
+                               input_names = names(ranges), beta, u,
+                               c_lengths, funcs, bucov, deltas,
+                               quadratic=F, beta.var = FALSE) {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
     ranges <- purrr::map(input_names, ~c(-1,1))
@@ -174,7 +184,10 @@ emulator_from_data <- function(input_data, output_names, ranges, input_names = n
     }
     model_beta_mus <- purrr::map(models, ~c(.x$coefficients, use.names = F))
     model_basis_funcs <- purrr::map(models, ~all_funcs[all_coeffs %in% variable.names(.x)])
-    model_beta_sigmas <- purrr::map(model_beta_mus, ~diag(0, nrow = length(.x)))
+    if (beta.var)
+      model_beta_sigmas <- map(models, ~vcov(.x))
+    else
+      model_beta_sigmas <- purrr::map(model_beta_mus, ~diag(0, nrow = length(.x)))
   }
   else {
     model_beta_mus <- purrr::map(beta, ~.x$mu)
