@@ -24,14 +24,16 @@ The package is composed of an object definition (as an R6 class), and functions 
  The R6 class is
 - ``Emulator``: This is the key object in the package. Given the second-order specifications for $\beta$ and $u(x)$ (namely their expectations, variances, and covariances), and the basis functions $g(x)$, an emulator is generated. From this we can find expectation and variance of the emulator at input points; we can use data points from a simulator to train new emulators based on these prior specifications; and we can determine implausibility for a given input against a desired output. The specifications can be definde by hand, up to and including nugget terms; alternatively, emulators for known data can be derived as a 'first pass' using `emulator_from_data`.
 
-Associated functions (not an exhaustive list):
+Associated functions (not an exhaustive list; see ``lsf.str("package:emulatorr")`` and associated help files):
 - ``emulator_from_data``: Generates basic univariate emulators from simulator data, along with some simple prior information
-- diagnostic functions (``standard_error``, ``comparison_diagnostics``, ...): Shows diagnostic tests on an emulator given a validation set of data
+- Diagnostic functions (``standard_error``, ``comparison_diagnostics``, ...): Shows diagnostic tests on an emulator given a validation set of data
 - ``nth_implausible``: For a collection of outputs, and univariate emulators trained to each, finds the $n$-th maximum implausibility for an input point against a desired set of outputs.
 - ``generate_new_runs``: Given a set of trained emulators, suggests a new set of points to be entered into the simulator.
+- Plotting functions (``output_plot``, ``emulator_plot``, ...): Various plotting functions for visualising output.
+- ``full_wave``: Rolls together the key components of a wave, generating emulators from data, checking diagnostics, finding implausibilities, and creating a new set of points on which to run the simulator.
 
 ### Installation ###
-Not sure! At present, using RStudio with ``devtools`` enabled, the command ``devtools::install_github("Tandethsquire/emulatorr")`` should install it. A PAT will be required: contact me for access if desired.
+Using RStudio with ``devtools`` enabled, the command ``devtools::install_github("Tandethsquire/emulatorr")`` will install the package. Henceforth, entering ``library(emulatorr)`` will make it available for use.
 
 ### Comments and Suggestions ###
 Suggestions for improvement, and comments on functionality, are welcome. For preference these should be addressed via pull requests and/or issue logging, but if in doubt email andrew.iskauskas@durham.ac.uk.
