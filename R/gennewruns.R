@@ -21,9 +21,9 @@
 #' collection of distributions and non-implausible points generated are filtered out. From the
 #' remaining points, a sample of the required size is generated using maximin criterion.
 #'
-#' For any sampling strategy, the parameters \code{emulators} and \code{ranges} must be
-#' specified. If the method is 'slice', then the parameters \code{x}
-#' and \code{z} are necessary. All other parameters are optional.
+#' For any sampling strategy, the parameters \code{emulators}, \code{ranges} and
+#' \code{z} must be specified. If the method is 'slice', then the parameter \code{x}
+#' is necessary. All other parameters are optional.
 #'
 #' @importFrom stats setNames runif dist
 #'
@@ -33,7 +33,7 @@
 #' @param z Checks implausibility of sample points to restrict to only non-implausible points.
 #' @param method Any of 'lhs', 'slice', 'optical'.
 #' @param cutoff Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3
-#' @param ... Any parameters that need to be passed to a particular method (see above)
+#' @param ... Any parameters that need to be passed to a particular method (see below)
 #'
 #' @return A \code{data.frame} containing the set of new points to simulate at.
 #' @export
@@ -49,12 +49,12 @@
 #'  list(val = 30, sigma = 11.16),
 #'  list(val = 689, sigma = 14.32)
 #' )
-#' non_imp_points <- GillespieImplausibility[GillespieImplausibility$I2 <= 4, names(ranges)]
+#' non_imp_points <- GillespieImplausibility[GillespieImplausibility$I <= 4, names(ranges)]
 #' example_point <- unlist(non_imp_points[sample(1:length(non_imp_points[,1]), 1),],
 #'  use.names = FALSE)
 #' pts_lhs <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3)
-#' pts_slice <- generate_new_runs(trained_ems, ranges, 10, targets,
-#'  method = 'slice', cutoff = 4, x = example_point)
+#' #pts_slice <- generate_new_runs(trained_ems, ranges, 10, targets,
+#'  #method = 'slice', cutoff = 4, x = example_point)
 #' pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', cutoff = 3, ...) {

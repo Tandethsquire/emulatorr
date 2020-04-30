@@ -38,7 +38,7 @@
 #' [0.1, 0.8], [0, 0.5], [0, 0.05] for aSI, aIR and aSR respectively.
 #' Implausibility has been calculated (for emulators trained on the
 #' \code{\link{GillespieSIR}} dataset) for each of the outputs nS, nI, nR,
-#' and the 2nd maximum implausibility is included.
+#' and the maximum implausibility is included.
 #' The target values used in calculating implausibility were:
 #' nS: 281 (sigma 10.43);
 #' nI: 30 (sigma 11.16);
@@ -52,6 +52,6 @@
 #'   \item{nS}{Implausibility for nS}
 #'   \item{nI}{Implausibility for nI}
 #'   \item{nR}{Implausibility for nR}
-#'   \item{I2}{Second-maximum implausibility}
+#'   \item{I}{Maximum implausibility}
 #' }
 "GillespieImplausibility"

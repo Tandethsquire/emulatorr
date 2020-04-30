@@ -25,3 +25,16 @@ Generates implausibility plots: either optical depth, or minimum implausibility.
 Simply a plot wrapper to make later things easier for lattice plots, etc.
 However, it does have value in and of itself.
 }
+\examples{
+ ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+ implaus <- GillespieImplausibility[,c(names(ranges), "I")]
+ targets <- list(
+  list(val = 281, sigma = 10.43),
+  list(val = 30, sigma = 11.16),
+  list(val = 689, sigma = 14.32)
+ )
+ op_depth <- optical_depth(targets, ranges, 20, plot_vars = c('aSI','aIR'), imps = implaus)
+ plot_implausible(op_depth, c('aSI','aIR'), 2, ticks = TRUE)
+ min_imp <- min_implausibility(targets, ranges, points_per_dim = 20, imps = implaus)
+ plot_implausible(min_imp, c('aSI','aIR'), 2, min = TRUE, ticks = TRUE)
+}

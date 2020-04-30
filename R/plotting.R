@@ -1,6 +1,7 @@
 #' Plot Emulator Outputs
 #'
-#' A wrapper for plotting emulator outputs, for two dimensions.
+#' A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
+#' than 2-dimensional, the mid-range values are chosen for any input beyond the first two.
 #' If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
 #' or \code{\link{full_wave}}), then the result is a kx2 grid of plots. If a single emulator is
 #' given, then a single plot is returned.
@@ -28,9 +29,30 @@
 #' @return A ggplot object.
 #' @export
 #'
+#' @examples
+#'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#'  targets <- list(
+#'   list(val = 281, sigma = 10.43),
+#'   list(val = 30, sigma = 11.16),
+#'   list(val = 689, sigma = 14.32)
+#'  )
+#'  outputs <- c('nS','nI','nR')
+#'  ems <- emulator_from_data(GillespieSIR, outputs, ranges, deltas=rep(0.1, 3), quadratic = TRUE)
+#'  t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
+#'  names(t_ems) <- outputs
+#'  emulator_plot(t_ems$nI)
+#'  emulator_plot(t_ems, var = 'var', npoints = 20)
+#'  emulator_plot(t_ems, var = 'imp', targets = targets, npoints = 20)
 emulator_plot <- function(em, var = 'exp', npoints = 40, targets = NULL, ...) {
   makeGrid <- function(n_points, ranges) {
-    return(expand.grid(seq(ranges[[1]][1], ranges[[1]][2], length.out = n_points), seq(ranges[[2]][1], ranges[[2]][2], length.out = n_points)))
+    grd <- expand.grid(seq(ranges[[1]][1], ranges[[1]][2], length.out = n_points), seq(ranges[[2]][1], ranges[[2]][2], length.out = n_points))
+    if (length(ranges) > 2) {
+      for (i in 3:length(ranges)) {
+        nm <- names(ranges)[i]
+        grd$nm <- (ranges[[i]][1]+ranges[[i]][2])/2
+      }
+    }
+    return(grd)
   }
   # If a single emulator, plot it!
   if (var == 'exp') title = "Emulator Expectation"
@@ -125,9 +147,22 @@ emulator_plot <- function(em, var = 'exp', npoints = 40, targets = NULL, ...) {
 #' @return A ggplot object.
 #' @export
 #'
+#' @examples
+#'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#'  outputs <- c('nS','nI','nR')
+#'  targets <- list(
+#'   nS = list(val = 281, sigma = 10.43),
+#'   nI = list(val = 30, sigma = 11.16),
+#'   nR = list(val = 689, sigma = 14.32)
+#'  )
+#'  ems <- emulator_from_data(GillespieSIR, outputs, ranges,
+#'   deltas = rep(0.1, 3), quadratic = TRUE)
+#'  t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[.]))
+#'  output_plot(t_ems, targets)
 output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
+  if (is.null(names(targets))) names(targets) <- names(emulators)
   if (is.null(points)) {
-    ranges <- purrr::map(emulators, ~.x$ranges) %>% setNames(names(targets))
+    ranges <- emulators[[1]]$ranges
     points <- data.frame(purrr::map(ranges, ~runif(npoints, .x[1], .x[2])))
   }
   em_exp <- data.frame(purrr::map(emulators, ~.x$get_exp(points))) %>% setNames(names(targets))
@@ -151,7 +186,7 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #' Simply a plot wrapper to make later things easier for lattice plots, etc.
 #' However, it does have value in and of itself.
 #'
-#' @importFrom ggplot2 geom_raster geom_smooth ggplot theme_dark theme element_text element_blank
+#' @importFrom ggplot2 geom_raster geom_smooth ggplot theme_dark theme element_text element_blank coord_cartesian
 #' @importFrom stats loess
 #'
 #' @param df A data.frame containing the inputs and implausibilities
@@ -163,23 +198,36 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #' @return A ggplot object
 #' @export
 #'
+#' @examples
+#'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#'  implaus <- GillespieImplausibility[,c(names(ranges), "I")]
+#'  targets <- list(
+#'   list(val = 281, sigma = 10.43),
+#'   list(val = 30, sigma = 11.16),
+#'   list(val = 689, sigma = 14.32)
+#'  )
+#'  op_depth <- optical_depth(targets, ranges, 20, plot_vars = c('aSI','aIR'), imps = implaus)
+#'  plot_implausible(op_depth, c('aSI','aIR'), 2, ticks = TRUE)
+#'  min_imp <- min_implausibility(targets, ranges, points_per_dim = 20, imps = implaus)
+#'  plot_implausible(min_imp, c('aSI','aIR'), 2, min = TRUE, ticks = TRUE)
 plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
   Minimum <- Proportion <- NULL
   impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3)
+  if (!ticks) lbls <- NULL else lbls = as.character(impbrks)
   if (min)
   {
     g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
       geom_raster(aes(fill = Minimum), interpolate = TRUE) +
-      scale_fill_gradient2(low = '#00FF00', mid = '#AAFF00', high = '#FFFF00', midpoint = 2, breaks = impbrks, labels = NULL) +
+      scale_fill_gradient2(low = '#00FF00', mid = '#AAFF00', high = '#FF0000', midpoint = 2, breaks = impbrks, labels = NULL) +
       labs(x = names[1], y = names[2])
   }
   else if (nvars == 1)
   {
     g <- ggplot(data = df, aes(x = df[,names], y = Proportion, group = 1)) +
       ggplot2::geom_smooth(formula = y~x, method = stats::loess, se = FALSE, color = 'white') +
+      ggplot2::coord_cartesian(ylim=c(0,1)) +
       theme_dark() +
       labs(x = names, y = "Optical Depth")
-    #ylim(0,0.1)
   }
   else if (nvars == 2)
   {
@@ -213,6 +261,15 @@ plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
 #' @return A ggplot object
 #' @export
 #'
+#' @examples
+#'  imp_data <- GillespieImplausibility
+#'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#'  targets <- list(
+#'   list(val = 281, sigma = 10.43),
+#'   list(val = 30, sigma = 11.16),
+#'   list(val = 689, sigma = 14.32)
+#'  )
+#'  plot_lattice(imp_data[,c(names(ranges), "I")], targets, ranges, np = 20)
 plot_lattice <- function(implausibilities, targets, ranges, np = 50, ...) {
   nvars <- length(names(ranges))
   name_set <- t(combn(names(ranges), 2))

@@ -25,3 +25,16 @@ If no points are provided, then \code{npoints} points are uniformly sampled from
 input region. Else the provided points are used - for example, if a non-implausible
 space is known.
 }
+\examples{
+ ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+ outputs <- c('nS','nI','nR')
+ targets <- list(
+  nS = list(val = 281, sigma = 10.43),
+  nI = list(val = 30, sigma = 11.16),
+  nR = list(val = 689, sigma = 14.32)
+ )
+ ems <- emulator_from_data(GillespieSIR, outputs, ranges,
+  deltas = rep(0.1, 3), quadratic = TRUE)
+ t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[.]))
+ output_plot(t_ems, targets)
+}

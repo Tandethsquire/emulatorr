@@ -26,3 +26,13 @@ two-variable projections), and minimum implausibility.
 It is advisable to pass no more than 6 input parameter names to this function,
 as the graphs will be too small for meaningful analysis if more are provided.
 }
+\examples{
+ imp_data <- GillespieImplausibility
+ ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+ targets <- list(
+  list(val = 281, sigma = 10.43),
+  list(val = 30, sigma = 11.16),
+  list(val = 689, sigma = 14.32)
+ )
+ plot_lattice(imp_data[,c(names(ranges), "I")], targets, ranges, np = 20)
+}

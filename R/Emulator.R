@@ -43,7 +43,7 @@ Emulator <- R6::R6Class(
       }
       if (is.null(bucov)) self$beta_u_cov <- function(x) rep(0, length(self$beta_mu))
       else self$beta_u_cov <- bucov
-      self$theta <- sqrt(-0.25/(log(u$corr(0, 0.5)) - log(1-delta)))
+      self$theta <- sqrt(-1/log(self$corr(0,0.5)))/2
       self$ranges <- ranges
       if (is.null(ranges)) stop("Ranges for the parameters must be specified.")
       if (!is.null(data)) {
@@ -164,7 +164,7 @@ Emulator <- R6::R6Class(
       if (is.null(self$model))
         cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
       else
-        cat("\t Basic Functions: ", paste0(names(self$model$coefficients), collapse="; "), "\n")
+        cat("\t Basis Functions: ", paste0(names(self$model$coefficients), collapse="; "), "\n")
       cat("\t Active variables: ", paste0(names(self$ranges)[self$active_vars], collapse="; "), "\n")
       cat("\t Beta Expectation: ", paste(round(self$beta_mu, 4), collapse = "; "), "\n")
       cat("\t Beta Variance (eigenvalues): ", paste(round(eigen(self$beta_sigma)$values, 4), collapse = "; "), "\n")

@@ -21,7 +21,8 @@ emulator_plot(em, var = "exp", npoints = 40, targets = NULL, ...)
 A ggplot object.
 }
 \description{
-A wrapper for plotting emulator outputs, for two dimensions.
+A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
+than 2-dimensional, the mid-range values are chosen for any input beyond the first two.
 If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
 or \code{\link{full_wave}}), then the result is a kx2 grid of plots. If a single emulator is
 given, then a single plot is returned.
@@ -35,4 +36,19 @@ implausibility is only permitted if a list of emulators is provided: the \code{.
 parameters that can be passed to this function are for optional parameters that can be
 passed to the \code{\link{nth_implausible}} function (for example, which level of
 maximum implausibility is wanted).
+}
+\examples{
+ ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+ targets <- list(
+  list(val = 281, sigma = 10.43),
+  list(val = 30, sigma = 11.16),
+  list(val = 689, sigma = 14.32)
+ )
+ outputs <- c('nS','nI','nR')
+ ems <- emulator_from_data(GillespieSIR, outputs, ranges, deltas=rep(0.1, 3), quadratic = TRUE)
+ t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
+ names(t_ems) <- outputs
+ emulator_plot(t_ems$nI)
+ emulator_plot(t_ems, var = 'var', npoints = 20)
+ emulator_plot(t_ems, var = 'imp', targets = targets, npoints = 20)
 }

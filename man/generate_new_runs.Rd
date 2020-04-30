@@ -27,7 +27,7 @@ generate_new_runs(
 
 \item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3}
 
-\item{...}{Any parameters that need to be passed to a particular method (see above)}
+\item{...}{Any parameters that need to be passed to a particular method (see below)}
 }
 \value{
 A \code{data.frame} containing the set of new points to simulate at.
@@ -55,9 +55,9 @@ and used as a distribution for that parameter. Points are sampled from the
 collection of distributions and non-implausible points generated are filtered out. From the
 remaining points, a sample of the required size is generated using maximin criterion.
 
-For any sampling strategy, the parameters \code{emulators} and \code{ranges} must be
-specified. If the method is 'slice', then the parameters \code{x}
-and \code{z} are necessary. All other parameters are optional.
+For any sampling strategy, the parameters \code{emulators}, \code{ranges} and
+\code{z} must be specified. If the method is 'slice', then the parameter \code{x}
+is necessary. All other parameters are optional.
 }
 \examples{
 ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
@@ -70,12 +70,12 @@ targets <- list(
  list(val = 30, sigma = 11.16),
  list(val = 689, sigma = 14.32)
 )
-non_imp_points <- GillespieImplausibility[GillespieImplausibility$I2 <= 4, names(ranges)]
+non_imp_points <- GillespieImplausibility[GillespieImplausibility$I <= 4, names(ranges)]
 example_point <- unlist(non_imp_points[sample(1:length(non_imp_points[,1]), 1),],
  use.names = FALSE)
 pts_lhs <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3)
-pts_slice <- generate_new_runs(trained_ems, ranges, 10, targets,
- method = 'slice', cutoff = 4, x = example_point)
+#pts_slice <- generate_new_runs(trained_ems, ranges, 10, targets,
+ #method = 'slice', cutoff = 4, x = example_point)
 pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
 }

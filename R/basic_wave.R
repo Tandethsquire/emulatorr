@@ -34,6 +34,17 @@
 #'
 #' @return A list of base emulators, trained emulators for this wave, new sample points, and new ranges.
 #' @export
+#'
+#' @examples
+#'  #ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#'  #outputs <- c('nS','nI','nR')
+#'  #targets <- list(
+#'  # list(val = 281, sigma = 10.43),
+#'  # list(val = 30, sigma = 11.16),
+#'  # list(val = 689, sigma = 14.32)
+#'  #)
+#'  #wave1 <- full_wave(GillespieSIR, GillespieValidation, ranges, outputs, targets,
+#'  # n_points = 30, deltas = rep(0.1, 3), quadratic = TRUE)
 
 full_wave <- function(input_data, validation_data, ranges, output_names, targets, n_points = 40, previous_wave = NULL, sample_method = 'lhs', ...) {
   targets <- setNames(targets, output_names)
@@ -42,7 +53,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
   else
     base_emulators <- previous_wave$base_emulators
   trained_emulators <- setNames(purrr::map(seq_along(base_emulators), ~base_emulators[[.x]]$adjust(input_data, output_names[[.x]])), output_names)
-  cat("Running diagnostics...")
+  cat("Running diagnostics...\n")
   diaglist <- list()
   for (i in 1:length(trained_emulators)) {
     diagdata <- comparison_diagnostics(trained_emulators[[i]], validation_data[,names(ranges)], validation_data[,output_names[[i]]], plt = F)
@@ -58,7 +69,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
     }
   }
   if (length(trained_emulators) < length(output_names)/2) stop("Not enough outputs can be emulated.")
-  cat("Completed diagnostics. Finding non-implausible region...")
+  cat("Completed diagnostics. Finding non-implausible region...\n")
   makeGrid <- function(ranges, npoints) {
     seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = npoints))
     return(setNames(expand.grid(seqs), names(ranges)))
@@ -68,7 +79,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
   imp_data <- setNames(data.frame(cbind(eval_grid, imps)), c(names(ranges), "I"))
   p_set <- imp_data[imp_data$I<=3,]
   new_ranges <- lapply(p_set[,names(ranges)], function(x) c(min(x), max(x)))
-  cat("Generating new sample points...")
+  cat("Generating new sample points...\n")
   if (sample_method == 'lhs')
     new_points <- generate_new_runs(trained_emulators, new_ranges, z = targets)
   else if (sample_method == 'slice') {
