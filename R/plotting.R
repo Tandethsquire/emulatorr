@@ -49,7 +49,7 @@ emulator_plot <- function(em, var = 'exp', npoints = 40, targets = NULL, ...) {
     if (length(ranges) > 2) {
       for (i in 3:length(ranges)) {
         nm <- names(ranges)[i]
-        grd$nm <- (ranges[[i]][1]+ranges[[i]][2])/2
+        grd[[nm]] <- (ranges[[i]][1]+ranges[[i]][2])/2
       }
     }
     return(grd)
@@ -213,7 +213,7 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
   Minimum <- Proportion <- NULL
   impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3)
-  if (!ticks) lbls <- NULL else lbls = as.character(impbrks)
+  lbls <- c('', '', '', 1, '', '', '2', '', '', 3)
   if (min)
   {
     g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
