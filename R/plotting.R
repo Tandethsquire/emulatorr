@@ -15,13 +15,13 @@
 #' passed to the \code{\link{nth_implausible}} function (for example, which level of
 #' maximum implausibility is wanted).
 #'
-#' @importFrom ggplot2 ggplot aes geom_raster scale_fill_gradientn scale_fill_gradient2 labs xlab ylab facet_wrap
-#' @importFrom wesanderson wes_palette
+#' @import ggplot2
+#' @importFrom viridis scale_fill_viridis
 #' @importFrom reshape2 melt
 #' @importFrom purrr %>%
 #'
 #' @param em A single \code{\link{Emulator}} object, or a list thereof
-#' @param var The output to plot: options are described above
+#' @param var_name The output to plot: options are described above
 #' @param npoints The number of lattice points per input direction
 #' @param targets The observations. Required if plotting implausibility
 #' @param ... Any optional parameters for \code{\link{nth_implausible}}
@@ -41,9 +41,9 @@
 #'  t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
 #'  names(t_ems) <- outputs
 #'  emulator_plot(t_ems$nI)
-#'  emulator_plot(t_ems, var = 'var', npoints = 20)
-#'  emulator_plot(t_ems, var = 'imp', targets = targets, npoints = 20)
-emulator_plot <- function(em, var = 'exp', npoints = 40, targets = NULL, ...) {
+#'  emulator_plot(t_ems, var_name = 'var', npoints = 20)
+#'  emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 20)
+emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ...) {
   makeGrid <- function(n_points, ranges) {
     grd <- expand.grid(seq(ranges[[1]][1], ranges[[1]][2], length.out = n_points), seq(ranges[[2]][1], ranges[[2]][2], length.out = n_points))
     if (length(ranges) > 2) {
@@ -55,75 +55,121 @@ emulator_plot <- function(em, var = 'exp', npoints = 40, targets = NULL, ...) {
     return(grd)
   }
   # If a single emulator, plot it!
-  if (var == 'exp') title = "Emulator Expectation"
-  if (var == 'var') title = "Emulator Variance"
-  if (var == 'imp') title = "Emulator Implausibility"
+  if (var_name == 'exp') title = "Emulator Expectation"
+  if (var_name == 'var') title = "Emulator Variance"
+  if (var_name == 'sd') title = "Emulator Standard Deviation"
+  if (var_name == 'imp') title = "Emulator Implausibility"
   if (class(em)[1] == "Emulator")
   {
     grid <- makeGrid(npoints, em$ranges)
-    if (var == "exp") {
+    if (var_name == "exp") {
       outputs <- em$get_exp(grid)
-      cols <- 'Royal1'
+      cols <- 'magma'
     }
-    else if (var == 'var') {
+    else if (var_name == 'var' || var_name  == 'sd') {
       outputs <- em$get_cov(grid)
-      cols <- 'Royal2'
+      if (var_name == 'sd') outputs <- sqrt(outputs)
+      cols <- 'plasma'
     }
-    else if (var == 'imp' && !is.null(targets)) {
+    else if (var_name == 'imp' && !is.null(targets)) {
       outputs <- em$implausibility(grid, targets)
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-      impnames <- c(0, '', '', 1, '', '', '', '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid[,'value'] < .)), TRUE)
     }
     else stop("Could not plot output.")
-    data_grid <- data.frame(cbind(grid, outputs)) %>% setNames(c(names(em$ranges), var))
-    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em$ranges)[[1]]], y = data_grid[,names(em$ranges)[[2]]])) +
-      geom_raster(aes(fill = data_grid[,var]), interpolate = TRUE)
-    if (var == 'exp' || var == 'var')
+    data_grid <- data.frame(cbind(grid, outputs)) %>% setNames(c(names(em$ranges), var_name))
+    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em$ranges)[[1]]], y = data_grid[,names(em$ranges)[[2]]]))
+    if (var_name == 'exp' || var_name == 'var' || var_name == 'sd')
     {
-      g <- g + scale_fill_gradientn(colours = wes_palette(cols, 20, type = 'continuous'), name = ifelse(var == 'exp', 'E[f(x)]', 'Var[f(x)]'))
+      if (var_name == 'exp') nm <- 'E[f(x)]'
+      else if (var_name == 'var') nm <- 'Var[f(x)]'
+      else nm <- 'sd[f(x)]'
+      bin_vals <- round(seq(min(data_grid[,var_name]), max(data_grid[,var_name]), length.out = 15))
+      g <- g +
+        geom_contour_filled(aes(z = data_grid[,var_name]), bins = 15, colour = 'black') +
+        scale_fill_viridis(discrete = TRUE, option = cols, name = nm, labels = bin_vals)
     }
-    else if (var == "imp") {
-      g <- g + scale_fill_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = impbrks, labels = impnames, name = "I")
+    else if (var_name == "imp") {
+      cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+      g <- g +
+        geom_contour_filled(aes(z = data_grid[,var_name]), breaks = impbrks[included], colour = 'black') +
+        scale_fill_manual(values = cols[included], labels = impnames[included], guide = guide_legend(reverse = TRUE)) +
+        labs(fill = "I")
     }
-    return(g + labs(title = title) + xlab(names(em$ranges)[[1]]) + ylab(names(em$ranges)[[2]]))
+    return(g +
+             labs(title = title) +
+             xlab(names(em$ranges)[[1]]) +
+             ylab(names(em$ranges)[[2]]) +
+             scale_x_continuous(expand = c(0,0)) +
+             scale_y_continuous(expand = c(0,0)) +
+             theme_minimal())
   }
   # If multiple emulators, want to generate a melted data.frame.
   if (class(em)[1] == 'list' && class(em[[1]])[1] == 'Emulator') {
     grid <- makeGrid(npoints, em[[1]]$ranges)
     data_grid <- grid
-    if (var == 'maximp' && !is.null(targets)) {
+    if (var_name == 'maximp' && !is.null(targets)) {
       data_grid <- cbind(data_grid, nth_implausible(em, grid, targets, ...)) %>% setNames(c(names(em[[1]]$ranges), "I"))
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-      impnames <- c(0, '', '', 1, '', '', '', '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+      included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid$I < .)), TRUE)
       g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]])) +
-        geom_raster(aes(fill = I), interpolate = TRUE) +
-        scale_fill_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = impbrks, labels = impnames) +
-        labs(title = "Combined Implausibility") +
+        geom_contour_filled(aes(z = I), breaks = impbrks[included], colour = 'black') +
+        scale_fill_manual(values = cols[included], labels = impnames[included], guide = guide_legend(reverse = TRUE)) +
+        labs(title = "Maximum Implausibility", fill = "I") +
         xlab(names(em[[1]]$ranges)[[1]]) +
-        ylab(names(em[[1]]$ranges)[[2]])
+        ylab(names(em[[1]]$ranges)[[2]]) +
+        scale_x_continuous(expand = c(0,0)) +
+        scale_y_continuous(expand = c(0,0)) +
+        theme_minimal()
       return(g)
     }
     for (i in 1:length(em))
     {
-      if (var == 'exp')
+      if (var_name == 'exp')
         data_grid <- cbind(data_grid, em[[i]]$get_exp(grid))
-      else if (var == 'var')
+      else if (var_name == 'var')
         data_grid <- cbind(data_grid, em[[i]]$get_cov(grid))
-      else if (var == 'imp' && !is.null(targets))
+      else if (var_name == 'sd')
+        data_grid <- cbind(data_grid, sqrt(em[[i]]$get_cov(grid)))
+      else if (var_name == 'imp' && !is.null(targets))
         data_grid <- cbind(data_grid, em[[i]]$implausibility(grid, targets[[i]]))
       else stop("Could not plot output.")
     }
     data_grid <- data_grid %>% setNames(c(names(em[[1]]$ranges), names(em))) %>% melt(id.vars = names(em[[1]]$ranges))
-    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]])) +
-      geom_raster(aes(fill = data_grid[,'value']), interpolate = TRUE)
-    if (var == "exp") g <- g + scale_fill_gradientn(colours = wes_palette('Royal1',20,'continuous'), name = "E[f(x)]")
-    else if (var == 'var') g <- g + scale_fill_gradientn(colours = wes_palette('Royal2',20,'continuous'), name = "Var[f(x)]")
+    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]]))
+    if (var_name == 'exp' || var_name == 'var' || var_name == 'sd') {
+      max_val <- max(data_grid$value)
+      min_val <- min(data_grid$value)
+      bin_vals <- round(seq(max(data_grid$value), min(data_grid$value), length.out = 15))
+      g <- g + geom_contour_filled(aes(z = data_grid[,'value']), breaks = bin_vals, colour = 'black')
+      ifelse(var_name == 'exp', col <- 'magma', col <- 'plasma')
+      if (var_name == 'exp') nm <- 'E[f(x)]' else if (var_name == 'var') nm <- 'Var[f(x)]' else nm <- 'sd[f(x)]'
+      g <- g + scale_fill_viridis(discrete = TRUE, option = col, name = nm, labels = bin_vals)
+    }
     else {
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-      impnames <- c(0, '', '', 1, '', '', '', '', '', 3, '', '', '', 5, '', '', '', 10, 15)
-      g <- g + scale_fill_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = impbrks, labels = impnames, name = 'I')
+      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+      included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid[,'value'] < .)), TRUE)
+      g <- g +
+        geom_contour_filled(aes(z = data_grid[,'value']), breaks = impbrks[included], colour = 'black') +
+        scale_fill_manual(values = cols[included], labels = impnames[included], guide = guide_legend(reverse = TRUE)) +
+        labs(fill = "I")
     }
-    return(g + facet_wrap(~variable, ncol = 2) + labs(title = title) + xlab(names(em[[1]]$ranges)[[1]]) + ylab(names(em[[1]]$ranges)[[2]]))
+    return(g +
+             facet_wrap(~variable, ncol = max(3, floor(sqrt(length(em)))+1)) +
+             labs(title = title) +
+             xlab(names(em[[1]]$ranges)[[1]]) +
+             ylab(names(em[[1]]$ranges)[[2]]) +
+             scale_x_continuous(expand = c(0,0)) +
+             scale_y_continuous(expand = c(0,0)) +
+             theme_minimal())
   }
 }
 
@@ -171,7 +217,7 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
   target_df <- data.frame(label = names(targets), mu = purrr::map_dbl(targets, ~.x$val), sigma = purrr::map_dbl(targets, ~.x$sigma))
   variable <- value <- run <- mu <- sigma <- label <- NULL
   g <- ggplot(data = em_exp, aes(x = variable, y = value)) +
-    geom_line(colour = "purple", aes(group = run)) +
+    geom_line(colour = "purple", aes(group = run), lwd = 1) +
     geom_point(data = target_df, aes(x = label, y = mu), size = 2) +
     geom_errorbar(data = target_df, aes(x = label, y = mu,
                                         ymin = mu-3*sigma,
@@ -186,7 +232,7 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #' Simply a plot wrapper to make later things easier for lattice plots, etc.
 #' However, it does have value in and of itself.
 #'
-#' @importFrom ggplot2 geom_raster geom_smooth ggplot theme_dark theme element_text element_blank coord_cartesian
+#' @import ggplot2
 #' @importFrom stats loess
 #'
 #' @param df A data.frame containing the inputs and implausibilities
@@ -211,11 +257,14 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #'  min_imp <- min_implausibility(targets, ranges, points_per_dim = 20, imps = implaus)
 #'  plot_implausible(min_imp, c('aSI','aIR'), 2, min = TRUE, ticks = TRUE)
 plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
-  Minimum <- Proportion <- NULL
-  impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3)
-  lbls <- c('', '', '', 1, '', '', '2', '', '', 3)
+  Proportion <- Minimum <- NULL
   if (min)
   {
+    impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
+    impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+    cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+              '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+    included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(df$Minimum < .)), TRUE)
     g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
       geom_raster(aes(fill = Minimum), interpolate = TRUE) +
       scale_fill_gradient2(low = '#00FF00', mid = '#AAFF00', high = '#FF0000', midpoint = 2, breaks = impbrks, labels = NULL) +
@@ -224,9 +273,8 @@ plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
   else if (nvars == 1)
   {
     g <- ggplot(data = df, aes(x = df[,names], y = Proportion, group = 1)) +
-      ggplot2::geom_smooth(formula = y~x, method = stats::loess, se = FALSE, color = 'white') +
+      ggplot2::geom_smooth(formula = y~x, method = stats::loess, se = FALSE, color = 'black') +
       ggplot2::coord_cartesian(ylim=c(0,1)) +
-      theme_dark() +
       labs(x = names, y = "Optical Depth")
   }
   else if (nvars == 2)
@@ -235,6 +283,7 @@ plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
       geom_raster(aes(fill = Proportion), interpolate = TRUE) +
       labs(x = names[1], y = names[2])
   }
+  g <- g + theme_minimal()
   if (ticks)
     return(g + theme(axis.text.x = element_text(angle = 90)))
   else

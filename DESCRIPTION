@@ -14,6 +14,7 @@ Imports:
   R6,
   ggplot2,
   wesanderson,
+  viridis,
   reshape2,
   cowplot
 License: GPL-3

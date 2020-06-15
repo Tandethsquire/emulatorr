@@ -4,12 +4,12 @@
 \alias{emulator_plot}
 \title{Plot Emulator Outputs}
 \usage{
-emulator_plot(em, var = "exp", npoints = 40, targets = NULL, ...)
+emulator_plot(em, var_name = "exp", npoints = 40, targets = NULL, ...)
 }
 \arguments{
 \item{em}{A single \code{\link{Emulator}} object, or a list thereof}
 
-\item{var}{The output to plot: options are described above}
+\item{var_name}{The output to plot: options are described above}
 
 \item{npoints}{The number of lattice points per input direction}
 
@@ -49,6 +49,6 @@ maximum implausibility is wanted).
  t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
  names(t_ems) <- outputs
  emulator_plot(t_ems$nI)
- emulator_plot(t_ems, var = 'var', npoints = 20)
- emulator_plot(t_ems, var = 'imp', targets = targets, npoints = 20)
+ emulator_plot(t_ems, var_name = 'var', npoints = 20)
+ emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 20)
 }

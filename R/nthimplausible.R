@@ -30,7 +30,7 @@
 #'  aSR = seq(0, 0.05, length.out = 4)
 #' )
 #' nth_implausible(ems, grid, targets, n = 2)
-nth_implausible <- function(emulators, x, z, n = min(2,floor(length(emulators)/2)), max_imp = 20) {
+nth_implausible <- function(emulators, x, z, n = 1, max_imp = 20) {
   if (is.numeric(z))
     output <- purrr::map(z, ~list(val=.x, sigma=0))
   else
