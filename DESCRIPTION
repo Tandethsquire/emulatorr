@@ -14,6 +14,7 @@ Imports:
   R6,
   ggplot2,
   viridis,
+  viridisLite,
   reshape2,
   plyr,
   cowplot
