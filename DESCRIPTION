@@ -13,9 +13,9 @@ Imports:
   purrr,
   R6,
   ggplot2,
-  wesanderson,
   viridis,
   reshape2,
+  plyr,
   cowplot
 License: GPL-3
 Encoding: UTF-8

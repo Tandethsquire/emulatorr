@@ -168,3 +168,73 @@ validation_plots <- function(emulators, input_points, output_names) {
   }
   par(op)
 }
+
+#' Space Removal
+#'
+#' Finds the proportion of space removed as a function of implausibility cut-off, and of structural
+#' discrepancy. Also shows the proportion of misclassifications given a chosen cut-off (applied to
+#' both the simulator and emulator implausibilities).
+#'
+#' The misclassifications are checked using the validation set from the current wave; the reduction
+#' in space is found by evaluating over a p^d regular grid, where p is chosen by n_points and d is
+#' the dimension of the input space.
+#'
+#' @import ggplot2
+#' @importFrom stats setNames
+#' @importFrom viridis scale_colour_viridis
+#' @importFrom plyr mutate
+#'
+#' @param emulators A set of \code{\link{Emulator}} objects.
+#' @param validation_points The validation set used in this wave.
+#' @param z The observations with which to match, as \code{list(val, sigma)} pairs.
+#' @param n_points The number of points in each dimension of the grid.
+#' @param u_mod The percentage differences in structural discrepancy to examine.
+#' @param intervals The set of implausibility cut-offs to consider.
+#'
+#' @return A list of two \code{data.frame}s, one for removed space and one for misclassifications.
+#' @export
+#'
+space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod = seq(0.8, 1.2, by = 0.1), intervals = seq(0, 10, length.out = 200)) {
+  value <- variable <- NULL
+  in_names <- names(emulators[[1]]$ranges)
+  z_vals <- purrr::map_dbl(z, ~.$val)
+  z_sigs <- purrr::map_dbl(z, ~.$sigma)
+  on_grid <- setNames(expand.grid(purrr::map(emulators[[1]]$ranges, ~seq(.[[1]], .[[2]], length.out = n_points))), in_names)
+  em_exps <- data.frame(purrr::map(emulators, ~.$get_exp(on_grid)))
+  em_vars <- data.frame(purrr::map(emulators, ~.$get_cov(on_grid)))
+  valid_exps <- data.frame(purrr::map(emulators, ~.$get_exp(validation_points[,in_names])))
+  valid_vars <- data.frame(purrr::map(emulators, ~.$get_cov(validation_points[,in_names])))
+  imp_array <- array(0, dim = c(length(intervals), length(u_mod)))
+  misclass_arr <- array(0, dim = c(length(intervals), length(u_mod)))
+  for (i in u_mod) {
+    imps <- abs(em_exps - z_vals)/sqrt(em_vars + (z_sigs * i)^2)
+    m_imps <- apply(imps, 1, max)
+    cutoff <- purrr::map_dbl(intervals, ~1-length(m_imps[m_imps <= .])/length(m_imps))
+    em_imps <- abs(valid_exps - z_vals)/sqrt(valid_vars + (z_sigs * i)^2)
+    sim_imps <- abs(validation_points[,!names(validation_points) %in% in_names] - z_vals)/(z_sigs * i)
+    misc <- purrr::map_dbl(intervals, ~sum(apply(em_imps > . & sim_imps <= ., 1, purrr::some, isTRUE), na.rm = TRUE))/length(validation_points[,1])
+    imp_array[, match(i, u_mod)] <- cutoff
+    misclass_arr[, match(i, u_mod)] <- misc
+  }
+  df1 <- setNames(data.frame(imp_array), u_mod)
+  df1$cutoff <- intervals
+  df2 <- setNames(data.frame(misclass_arr), u_mod)
+  df2$cutoff <- intervals
+  melted_df1 <- reshape2::melt(df1, id.vars = 'cutoff')
+  melted_df2 <- reshape2::melt(df2, id.vars = 'cutoff')
+  g <- ggplot(data = melted_df1, aes(x = cutoff, y = value, group = variable, colour = variable)) +
+    geom_line(lwd = 1) +
+    geom_line(data = plyr::mutate(melted_df2, value = value/max(value)), lwd = 0.5) +
+    scale_colour_viridis(discrete = TRUE, option = 'cividis', labels = function(b) {paste0(round(as.numeric(b)*100, 0), "%")}) +
+    scale_x_continuous("Implausibility cut-off", labels = function(b) {round(b, 1)}) +
+    scale_y_continuous("Removed", labels = function(b) {
+      paste0(round(b*100,0),"%")
+    },
+    sec.axis = sec_axis(~.*max(melted_df2$value), name = "Misclassified", labels = function(b) {
+      paste0(round(b*100,0), "%")
+    })) +
+    labs(title = "Space removed as a function of implausibility cut-off and structural discrepancy", colour = "% Structural\n Disc.", x = "Cut-off", y = "% removed") +
+    theme_minimal()
+  print(g)
+  return(list(reduced = df1, misclassed = df2))
+}
