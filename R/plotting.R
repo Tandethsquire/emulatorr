@@ -84,7 +84,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
     {
       if (var_name == 'exp') nm <- 'E[f(x)]'
       else if (var_name == 'var') nm <- 'Var[f(x)]'
-      else nm <- 'sd[f(x)]'
+      else nm <- 'SD[f(x)]'
       bin_vals <- round(seq(min(data_grid[,var_name]), max(data_grid[,var_name]), length.out = 15))
       g <- g +
         geom_contour_filled(aes(z = data_grid[,var_name]), bins = 15, colour = 'black') +
@@ -148,7 +148,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
       bin_vals <- round(seq(max(data_grid$value), min(data_grid$value), length.out = 15))
       g <- g + geom_contour_filled(aes(z = data_grid[,'value']), breaks = bin_vals, colour = 'black')
       ifelse(var_name == 'exp', col <- 'magma', col <- 'plasma')
-      if (var_name == 'exp') nm <- 'E[f(x)]' else if (var_name == 'var') nm <- 'Var[f(x)]' else nm <- 'sd[f(x)]'
+      if (var_name == 'exp') nm <- 'E[f(x)]' else if (var_name == 'var') nm <- 'Var[f(x)]' else nm <- 'SD[f(x)]'
       g <- g + scale_fill_viridis(discrete = TRUE, option = col, name = nm, labels = bin_vals)
     }
     else {

@@ -17,6 +17,7 @@ Imports:
   viridisLite,
   reshape2,
   plyr,
+  patchwork,
   cowplot
 License: GPL-3
 Encoding: UTF-8
