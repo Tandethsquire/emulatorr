@@ -41,8 +41,9 @@
 #'  t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
 #'  names(t_ems) <- outputs
 #'  emulator_plot(t_ems$nI)
-#'  emulator_plot(t_ems, var_name = 'var', npoints = 20)
-#'  emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 20)
+#'  emulator_plot(t_ems, var_name = 'var', npoints = 10)
+#'  emulator_plot(t_ems, var_name = 'sd', npoints = 10)
+#'  emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 10)
 emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ...) {
   makeGrid <- function(n_points, ranges) {
     grd <- expand.grid(seq(ranges[[1]][1], ranges[[1]][2], length.out = n_points), seq(ranges[[2]][1], ranges[[2]][2], length.out = n_points))

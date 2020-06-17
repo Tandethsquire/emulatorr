@@ -36,3 +36,14 @@ points suggested by that wave of emulators. By default, wave 0 is included. A co
 scheme is chosen outright for all invocations of this function: it is a 10-colour
 palette. If more waves are required, then an alternative palette should be selected.
 }
+\examples{
+ targets <- list(
+  nS = list(val = 281, sigma = 10.43),
+  nI = list(val = 30, sigma = 11.16),
+  nR = list(val = 689, sigma = 14.32)
+ )
+ simulator_plot(GillespieMultiWaveData, targets)
+ simulator_plot(GillespieMultiWaveData[2:4], targets,
+  zero_in = FALSE, wave_numbers = c(1,3))
+
+}

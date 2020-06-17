@@ -19,10 +19,20 @@
 #'
 #' @export
 #'
+#' @examples
+#'  targets <- list(
+#'   nS = list(val = 281, sigma = 10.43),
+#'   nI = list(val = 30, sigma = 11.16),
+#'   nR = list(val = 689, sigma = 14.32)
+#'  )
+#'  simulator_plot(GillespieMultiWaveData, targets)
+#'  simulator_plot(GillespieMultiWaveData[2:4], targets,
+#'   zero_in = FALSE, wave_numbers = c(1,3))
+#'
 simulator_plot <- function(wave_points, z, zero_in = TRUE, palette = NULL, wave_numbers = seq(ifelse(zero_in, 0, 1), length(wave_points)-ifelse(zero_in, 1, 0))) {
   variable <- value <- run <- wave <- val <- sigma <- NULL
   output_names <- names(z)
-  sim_runs <- do.call('rbind', purrr::map(wave_numbers, ~data.frame(wave_points[[.+1]][,output_names], wave = .)))
+  sim_runs <- do.call('rbind', purrr::map(wave_numbers, ~data.frame(wave_points[[.+ifelse(zero_in, 1, 0)]][,output_names], wave = .)))
   sim_runs$run <- 1:length(sim_runs[,1])
   melted <- reshape2::melt(sim_runs, id.vars = c('run', 'wave'))
   melted$wave = as.factor(melted$wave)
@@ -68,7 +78,13 @@ simulator_plot <- function(wave_points, z, zero_in = TRUE, palette = NULL, wave_
 #'
 #' @export
 #'
-wave_variance <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]$ranges)[1:2], n_points = 20, sd = FALSE) {
+#' @examples
+#'  outputs <- c('nS', 'nI', 'nR')
+#'  em_var <- wave_variance(GillespieMultiWaveEmulators, outputs, n_points = 5)
+#'  em_sd <- wave_variance(GillespieMultiWaveEmulators, c('nI', 'nR'),
+#'   plot_dirs = c('aIR', 'aSR'), n_points = 5, sd = TRUE)
+#'
+wave_variance <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]$ranges)[1:2], n_points = 40, sd = FALSE) {
   if (length(plot_dirs) != 2) stop("Two input directions must be specified.")
   variable <- value <- NULL
   main_ranges <- waves[[1]][[output_names[1]]]$ranges
@@ -90,7 +106,7 @@ wave_variance <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]
       geom_contour_filled(aes(z = value), colour = 'black', breaks = plot_bins) +
       scale_fill_viridis(discrete = TRUE, option = 'plasma', labels = plot_bins, name = ifelse(sd, 'SD[f(x)]', 'Var[f(x)]')) +
       facet_wrap(. ~ variable, nrow = length(waves), labeller = labeller(variable = function(x) paste("Wave",x))) +
-      labs(title = paste("Variance for output:", i), x = plot_dirs[1], y = plot_dirs[2]) +
+      labs(title = paste(ifelse(sd, "Standard Deviation", "Variance"), "for output:", i), x = plot_dirs[1], y = plot_dirs[2]) +
       theme_minimal()
     plot_list[[i]] <- g
   }

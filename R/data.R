@@ -55,3 +55,32 @@
 #'   \item{I}{Maximum implausibility}
 #' }
 "GillespieImplausibility"
+
+#' Sample Multi-wave Emulators
+#'
+#' An rda object containing three waves of emulation on the
+#' Gillespie SIR model.
+#'
+#' @format A list containing \code{\link{Emulator}} objects:
+#' \describe{
+#'   \item{Wave 1}{Emulators trained on GillespieSIR to generate wave 2 points}
+#'   \item{Wave 2}{Emulators trained on the results of the above wave 2 points}
+#'   \item{Wave 3}{Emulators trained on the results of the wave 3 points}
+#' }
+"GillespieMultiWaveEmulators"
+
+#' Sample Multi-wave Results
+#'
+#' An rda object containing four data.frames: an initial set of points
+#' (equivalent to \code{rbind(GillespieSIR, GillespieValidation)}), and
+#' the 90 points generated at each of three subsequent waves. The trained
+#' emulators are provided in \code{\link{GillespieMultiWaveEmulators}}.
+#'
+#' @format A list of data.frame objects:
+#' \describe{
+#'   \item{Wave 0}{The initial points used in other examples}
+#'   \item{Wave 1}{Points generated from the wave 1 emulators}
+#'   \item{Wave 2}{Points generated from the wave 2 emulators}
+#'   \item{Wave 3}{Points generated from the wave 3 emulators}
+#' }
+"GillespieMultiWaveData"

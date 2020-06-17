@@ -49,6 +49,7 @@ maximum implausibility is wanted).
  t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
  names(t_ems) <- outputs
  emulator_plot(t_ems$nI)
- emulator_plot(t_ems, var_name = 'var', npoints = 20)
- emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 20)
+ emulator_plot(t_ems, var_name = 'var', npoints = 10)
+ emulator_plot(t_ems, var_name = 'sd', npoints = 10)
+ emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 10)
 }

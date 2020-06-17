@@ -8,7 +8,7 @@ wave_variance(
   waves,
   output_names,
   plot_dirs = names(waves[[1]][[1]]$ranges)[1:2],
-  n_points = 20,
+  n_points = 40,
   sd = FALSE
 )
 }
@@ -38,4 +38,11 @@ A 2d slice is taken across the input space, where mid-range values of any
 non-plotted parameters are fixed. The emulator variance (or standard
 deviation) is then calculated across the two-dimensional subspace for each
 wave, and for each output.
+}
+\examples{
+ outputs <- c('nS', 'nI', 'nR')
+ em_var <- wave_variance(GillespieMultiWaveEmulators, outputs, n_points = 5)
+ em_sd <- wave_variance(GillespieMultiWaveEmulators, c('nI', 'nR'),
+  plot_dirs = c('aIR', 'aSR'), n_points = 5, sd = TRUE)
+
 }

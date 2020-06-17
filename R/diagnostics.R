@@ -194,6 +194,20 @@ validation_plots <- function(emulators, input_points, output_names) {
 #' @return A list of two \code{data.frame}s, one for removed space and one for misclassifications.
 #' @export
 #'
+#' @examples
+#' ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#' targets <- list(
+#'  list(val = 281, sigma = 10.43),
+#'  list(val = 30, sigma = 11.16),
+#'  list(val = 689, sigma = 14.32)
+#' )
+#' outputs <- c('nS','nI','nR')
+#' ems <- emulator_from_data(GillespieSIR, outputs, ranges, deltas = rep(0.1, 3), quadratic = TRUE)
+#' t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
+#' names(t_ems) <- outputs
+#' removal <- space_removed(ems, GillespieValidation, targets,
+#'  n_points = 5, u_mod = seq(0.75, 1.25, by = 0.25), intervals = seq(2, 6, by = 0.1))
+#'
 space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod = seq(0.8, 1.2, by = 0.1), intervals = seq(0, 10, length.out = 200)) {
   value <- variable <- NULL
   in_names <- names(emulators[[1]]$ranges)
