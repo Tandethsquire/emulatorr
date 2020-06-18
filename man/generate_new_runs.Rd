@@ -55,6 +55,11 @@ and used as a distribution for that parameter. Points are sampled from the
 collection of distributions and non-implausible points generated are filtered out. From the
 remaining points, a sample of the required size is generated using maximin criterion.
 
+If the method is 'importance', importance sampling is used. Starting from a set of
+non-implausible (preferably space-filling) points, points are sampled from a distribution
+around the points, and included in the output based on a weighted measure gained from the
+mixture distribution of the initial points. The set \code{plausible_set} must be specified.
+
 For any sampling strategy, the parameters \code{emulators}, \code{ranges} and
 \code{z} must be specified. If the method is 'slice', then the parameter \code{x}
 is necessary. All other parameters are optional.
@@ -78,4 +83,7 @@ pts_lhs <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3)
  #method = 'slice', cutoff = 4, x = example_point)
 pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
+non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
+pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
+ method = 'importance', cutoff = 4, plausible_set = non_imp_sample)
 }

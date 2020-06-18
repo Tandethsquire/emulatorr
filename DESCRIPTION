@@ -18,7 +18,8 @@ Imports:
   reshape2,
   plyr,
   patchwork,
-  cowplot
+  cowplot,
+  mvtnorm
 License: GPL-3
 Encoding: UTF-8
 LazyData: true

@@ -21,10 +21,16 @@
 #' collection of distributions and non-implausible points generated are filtered out. From the
 #' remaining points, a sample of the required size is generated using maximin criterion.
 #'
+#' If the method is 'importance', importance sampling is used. Starting from a set of
+#' non-implausible (preferably space-filling) points, points are sampled from a distribution
+#' around the points, and included in the output based on a weighted measure gained from the
+#' mixture distribution of the initial points. The set \code{plausible_set} must be specified.
+#'
 #' For any sampling strategy, the parameters \code{emulators}, \code{ranges} and
 #' \code{z} must be specified. If the method is 'slice', then the parameter \code{x}
 #' is necessary. All other parameters are optional.
 #'
+#' @importFrom mvtnorm dmvnorm rmvnorm
 #' @importFrom stats setNames runif dist
 #'
 #' @param emulators A list of \code{\link{Emulator}} objects, trained on the design points
@@ -57,14 +63,19 @@
 #'  #method = 'slice', cutoff = 4, x = example_point)
 #' pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
+#' non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
+#' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
+#'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample)
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', cutoff = 3, ...) {
   if (method == 'lhs')
     return(lhs_generation(emulators, ranges, n_points, z, cutoff, ...))
+  if (method == 'importance')
+    return(importance_sample(emulators, ranges, n_points, z, cutoff, ...))
   if (method == 'slice')
     return(slice_generation(emulators, ranges, n_points, z, cutoff, ...))
   if (method == 'optical')
     return(optical_depth_generation(emulators, ranges, n_points, z, cutoff, ...))
-  stop("Unknown method used. Options are 'lhs', 'slice', 'optical'.")
+  stop("Unknown method used. Options are 'lhs', 'slice', 'optical', 'importance'.")
 }
 
 # A function to perform lhs sampling
@@ -146,4 +157,41 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
   }
   message(cat("Minimum distance:", cdist))
   return(outset)
+}
+
+# Importance Sampling from initial points
+importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, dist = "normal", debug = FALSE, plausible_set) {
+  J <- function(x) nth_implausible(ems, x, z) <= cutoff
+  range_func <- function(x, ranges) {
+    all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
+  }
+  if (is.null(sd)) {
+    lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
+    sd <- diag((lengths/6)^2, length(lengths))
+  }
+  pts_added <- 0
+  out_arr <- array(0, dim = c(n_points, length(plausible_set)))
+  checking_points <- plausible_set[J(plausible_set),]
+  n_initial <- length(checking_points[,1])
+  weights <- apply(checking_points, 1, function(x) 1/n_initial * sum(apply(checking_points, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
+  min_w <- min(weights)
+  while (pts_added < n_points) {
+    which_point <- sample(1:n_initial, 1)
+    new_point <- rmvnorm(1, mean = unlist(checking_points[which_point,], use.names = F), sigma = sd)
+    if (!J(c(new_point)) || !range_func(new_point, ranges)) next
+    if (!debug) {
+      point_weight <- 1/n_initial * sum(apply(checking_points, 1, function(x) dmvnorm(new_point, mean = x, sigma = sd)))
+      choosing_prob <- min_w/point_weight
+      pick <- runif(1)
+      if (pick <= choosing_prob) {
+        pts_added <- pts_added + 1
+        out_arr[pts_added,] <- new_point
+      }
+    }
+    else {
+      pts_added <- pts_added + 1
+      out_arr[pts_added,] <- new_point
+    }
+  }
+  return(setNames(data.frame(out_arr), names(plausible_set)))
 }
