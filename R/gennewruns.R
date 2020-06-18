@@ -26,6 +26,12 @@
 #' around the points, and included in the output based on a weighted measure gained from the
 #' mixture distribution of the initial points. The set \code{plausible_set} must be specified.
 #'
+#' Note that the \code{plausible_set} parameter size differs between the two methods that use
+#' it (the 'optical' and 'importance') methods. The optical set should be as large as possible
+#' in order to accurately represent the optical depth in each parameter direction; the set for
+#' importance sampling should be smaller (and probably smaller than the desired number of
+#' output points) in order to expedite the initial set-up of the sampling strategy.
+#'
 #' For any sampling strategy, the parameters \code{emulators}, \code{ranges} and
 #' \code{z} must be specified. If the method is 'slice', then the parameter \code{x}
 #' is necessary. All other parameters are optional.
