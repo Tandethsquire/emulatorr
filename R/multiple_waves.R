@@ -118,3 +118,35 @@ wave_variance <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]
   }
   return(melted_frames)
 }
+
+wave_variance_alt <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]$ranges)[1:2], wave_numbers = 1:length(waves), n_points = 40, sd = FALSE) {
+  concurrent_plots <- length(waves[wave_numbers])
+  if (length(plot_dirs) != 2) stop("Two input directions must be specified.")
+  variable <- value <- NULL
+  main_ranges <- waves[[1]][[output_names[1]]]$ranges
+  grid_ranges <- data.frame(purrr::map(names(main_ranges), function(x) {
+    if (x %in% plot_dirs) main_ranges[[x]]
+    else rep((main_ranges[[x]][1]+main_ranges[[x]][2])/2, 2)
+  })) %>% setNames(names(main_ranges))
+  on_grid <- unique(setNames(expand.grid(purrr::map(grid_ranges, ~seq(.[[1]], .[[2]], length.out = n_points))), names(main_ranges)))
+  output <- purrr::map(output_names, ~setNames(cbind(on_grid, data.frame(purrr::map(waves[wave_numbers], function(x) {
+    if (!sd) x[[.]]$get_cov(on_grid)
+    else sqrt(x[[.]]$get_cov(on_grid))
+  }))), c(names(main_ranges), wave_numbers)))
+  melted_frames <- purrr::map(output, ~reshape2::melt(., id.vars = names(main_ranges))) %>% setNames(output_names)
+  for (i in 1:length(melted_frames)) melted_frames[[i]]$output <- output_names[i]
+  for (i in 1:ceiling(length(melted_frames)/concurrent_plots)) {
+    current_end <- min(concurrent_plots*i, length(melted_frames))
+    dat <- melted_frames[(concurrent_plots*(i-1)+1):current_end]
+    dat <- do.call('rbind', dat)
+    plot_bins <- round(seq(0, max(dat$value), length.out = 25))
+    g <- ggplot(data = dat, aes(x = dat[,plot_dirs[[1]]], y = dat[,plot_dirs[[2]]], group = variable)) +
+      geom_contour_filled(aes(z = value), colour = 'black', breaks = plot_bins) +
+      scale_fill_viridis(discrete = TRUE, option = 'plasma', labels = plot_bins, name = ifelse(sd, 'SD[f(x)]', 'Var[f(x)]')) +
+      facet_grid(rows = vars(variable), cols = vars(output), labeller = labeller(variable = function(x) paste("Wave", x))) +
+      labs(title = paste(ifelse(sd, "Standard Deviation", "Variance"), 'across waves'), x = plot_dirs[1], y = plot_dirs[2]) +
+      theme_minimal()
+    print(g)
+  }
+  return(melted_frames)
+}

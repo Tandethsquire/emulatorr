@@ -19,7 +19,9 @@ Imports:
   plyr,
   patchwork,
   cowplot,
-  mvtnorm
+  mvtnorm,
+  GGally,
+  rlang
 License: GPL-3
 Encoding: UTF-8
 LazyData: true

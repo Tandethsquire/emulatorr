@@ -1,3 +1,81 @@
+#' Emulator Diagnostics
+#'
+#' Plots standard diagnostics for emulators.
+#'
+#' These diagnostics are based on having two datasets: a training set and a
+#' validation set. The emulators will have been trained on the training set,
+#' and the validation set is passed to the functions in this wrapper.
+#'
+#' The current options for diagnostics (with the codes for which_diag) are:
+#'
+#'   Standard Errors (se)
+#'
+#'   Comparison Diagnostics (cd)
+#'
+#'   Classification Error (ce)
+#'
+#'   All of the above (all)
+#'
+#' For details on each of these, see the help files for \code{\link{standard_errors}},
+#' \code{\link{comparison_diagnostics}} and \code{\link{classification_error}} respectively.
+#'
+#' @importFrom purrr %>%
+#'
+#' @param emulators A list of emulators on which to perform diagnostics
+#' @param validation_points The validation set
+#' @param output_names The list of outputs to perform diagnostics on
+#' @param targets If required, the list of observations for the outputs
+#' @param which_diag Which diagnostics should be performed?
+#' @param ... Any additional parameters to pass to the diagnostic tests.
+#'
+#' @return A data.frame containing the points that failed one or more diagnostic tests.
+#'
+#' @export
+#'
+#' @examples
+#' output_names <- c('nS','nI','nR')
+#' ems <- emulator_from_data(GillespieSIR, output_names,
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)
+#' targets <- list(
+#'  list(val = 281, sigma = 10.43),
+#'  list(val = 30, sigma = 11.16),
+#'  list(val = 689, sigma = 14.32)
+#' )
+#' validation_diagnostics(ems, GillespieValidation, output_names, targets = targets)
+#' validation_diagnostics(ems, GillespieValidation, output_names, c('se','cd'))
+#' validation_diagnostics(ems[1:2], GillespieValidation, output_names[1:2], 'ce', targets[1:2])
+#' validation_diagnostics(ems, GillespieValidation, output_names,
+#'  targets = targets, sd = 1, cutoff = 4)
+#'
+validation_diagnostics <- function(emulators, validation_points, output_names, which_diag = 'all', targets = NULL, ...) {
+  in_points <- validation_points[,names(emulators[[1]]$ranges)]
+  out_points <- validation_points[,output_names]
+  fail_point_list <- list()
+  cl <- TRUE
+  if (length(which_diag) == 1 && which_diag == 'all') actual_diag <- c('se','cd','ce')
+  else {
+    actual_diag <- which_diag[which_diag %in% c('se', 'cd', 'ce')]
+    if (length(which_diag) != length(actual_diag)) warning(paste("Unrecognised diagnostics:",paste0(which_diag[!which_diag %in% c('se','cd','ce')], collapse = ", "),"\n\tValid diagnostic labels are cd, ce, se or all."))
+  }
+  mf <- length(actual_diag)
+  if (purrr::some(actual_diag, ~. == 'ce') && is.null(targets)) {
+    warning("No observations provided; cannot perform classification diagnostics.")
+    cl <- FALSE
+    mf <- mf - 1
+  }
+  op <- par(mfrow = c(3, mf))
+  for (i in 1:length(emulators))
+  {
+    if (purrr::some(actual_diag, ~. == 'cd')) fail_point_list[[length(fail_point_list)+1]] <- comparison_diagnostics(emulators[[i]], in_points, out_points[[i]], output_names[[i]], ...)
+    if (purrr::some(actual_diag, ~. == 'se')) fail_point_list[[length(fail_point_list)+1]] <- standard_errors(emulators[[i]], in_points, out_points[[i]], output_names[[i]], ...)
+    if (purrr::some(actual_diag, ~. == 'ce') && cl) fail_point_list[[length(fail_point_list)+1]] <- classification_error(emulators[[i]], in_points, out_points[[i]], targets[[i]], output_names[[i]], ...)
+  }
+  par(op)
+  failed_points <- unique(data.frame(do.call('rbind', fail_point_list)) %>% setNames(names(in_points)))
+  return(failed_points)
+}
+
 #' Emulator Standard Errors
 #'
 #' Finds and plots emulator standard errors.
@@ -13,6 +91,7 @@
 #' @param output_points The outputs, \code{f(x)}, from the simulator.
 #' @param output_name Optional. A name for the output.
 #' @param plt Should a plot be shown (default: T).
+#' @param ... Dummy parameters (for compatibility with diagnostic wrapper)
 #'
 #' @return A list of standard errors.
 #' @export
@@ -23,7 +102,7 @@
 #'  quadratic = TRUE)[[1]]
 #' standard_errors(em, GillespieValidation[,1:3], GillespieValidation[,'nS'], 'nS')
 #' #> (0.7864384, 0.01426296, 0.001072935)
-standard_errors <- function(emulator, input_points, output_points, output_name, plt = T) {
+standard_errors <- function(emulator, input_points, output_points, output_name, plt = T, ...) {
   errors <- (emulator$get_exp(input_points)-output_points)/sqrt(emulator$get_cov(input_points))
   if (plt) {
     if (missing(output_name))
@@ -51,6 +130,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #' @param sd Numeric: the allowed number of standard deviations (default: 3).
 #' @param output_name Optional. A name for the output.
 #' @param plt Should a plot be shown (default: T).
+#' @param ... Dummy parameters (for compatibility with diagnostic wrapper)
 #'
 #' @return A list of points whose emulator value is outside the allowed standard deviation.
 #' @export
@@ -61,7 +141,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #'  quadratic = TRUE)[[1]]
 #' comparison_diagnostics(em, GillespieValidation[,1:3], GillespieValidation[,'nS'])
 #' #> (0.7864384, 0.01426296, 0.001072935)
-comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, output_name, plt=T) {
+comparison_diagnostics <- function(emulator, input_points, output_points, output_name, sd=3, plt=T, ...) {
   emulator_outputs <- emulator$get_exp(input_points)
   emulator_uncertainty <- sd*sqrt(emulator$get_cov(input_points))
   em_ranges <- range(c(emulator_outputs + emulator_uncertainty, emulator_outputs - emulator_uncertainty))
@@ -104,6 +184,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, 
 #' @param output_name Optional. A name for the output.
 #' @param cutoff Optional. The cut-off for the implausibility measure.
 #' @param plt Should a plot be shown (default: T).
+#' @param ... Dummy parameters (for compatibility with diagnostic wrapper)
 #'
 #' @return The set of points misclassified by the emulator.
 #' @export
@@ -115,7 +196,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, sd=3, 
 #' target_value <- list(val = 281, sigma = 37.26)
 #' classification_error(em, GillespieValidation[,1:3], GillespieValidation[,'nS'], target_value)
 #' #> data.frame containing 0 points
-classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3, plt=T)
+classification_error <- function(emulator, input_points, output_points, z, output_name, cutoff=3, plt=T, ...)
 {
   if (is.numeric(z))
     output <- list(val = z, sigma = 0.001)
@@ -251,4 +332,69 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
     theme_minimal()
   print(g)
   return(list(reduced = df1, misclassed = df2))
+}
+
+#' Validation Set Comparisons and Implausibility
+#'
+#' Creates pairs plots on the set of validation points.
+#'
+#' Plots are organised as:
+#'
+#' a) Emulated vs Simulator Output (lower diagonal). The emulator outputs are compared
+#' against the simulator outputs. Points whose emulated output lies outside the 3-sigma
+#' region of the simulated output are coloured red; those inside are coloured green; a
+#' gradient between the two extremes indicates goodness-of-fit;
+#'
+#' b) Implausibility (upper diagonal). The implausibility for each point is calculated,
+#' using the same colour scaling as the lower diagonal.
+#'
+#' @importFrom GGally ggpairs wrap
+#' @importFrom rlang quo_get_expr
+#' @import ggplot2
+#'
+#' @param ems The list of trained emulators
+#' @param validation_points The validation set to be plotted
+#' @param z The target values for each emulated output
+#' @param orig_ranges The original ranges for the input parameters (if desired)
+#'
+#' @return A data.frame containing the validation points, with goodness-of-fit and implausibility.
+#'
+#' @export
+#'
+#' @examples
+#' ems <- emulator_from_data(GillespieSIR, c('nS','nI','nR'),
+#'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+#'  quadratic = TRUE)
+#' targets <- list(
+#'  list(val = 281, sigma = 10.43),
+#'  list(val = 30, sigma = 11.16),
+#'  list(val = 689, sigma = 14.32)
+#' )
+#' validation_pairs(ems, GillespieValidation, targets)
+validation_pairs <- function(ems, validation_points, z, orig_ranges) {
+  if(missing(orig_ranges))
+    orig_ranges <- ems[[1]]$ranges
+  em_vals <- data.frame(purrr::map(ems, ~.$get_exp(validation_points[,names(ems[[1]]$ranges)])))
+  em_uncert <- data.frame(purrr::map(ems, ~.$get_cov(validation_points[,names(ems[[1]]$ranges)])))
+  sim_vals <- validation_points[,!(names(validation_points)%in%names(ems[[1]]$ranges))]
+  results <- setNames(cbind(validation_points[,names(ems[[1]]$ranges)], apply(abs(em_vals - sim_vals)/sqrt(em_uncert), 1, max)), c(names(ems[[1]]$ranges), 'bad'))
+  results$imps <- nth_implausible(ems, validation_points[,names(ems[[1]]$ranges)], z)
+  colourbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
+  colournames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+  limfun <- function(data, mapping) {
+    ggplot(data = data, mapping = mapping) +
+      geom_point() +
+      xlim(orig_ranges[[rlang::quo_get_expr(mapping$x)]]) +
+      ylim(orig_ranges[[rlang::quo_get_expr(mapping$y)]])
+  }
+  g <- ggpairs(results, columns = 1:length(orig_ranges), aes(colour = results[,'bad']), legend = c(1,2),
+               title = "Emulator Diagnostics (lower) and Emulator Implausibility (upper)",
+               lower = list(continuous = wrap(limfun), mapping = aes(colour = results[,'imps'])),
+               upper = list(continuous = wrap(limfun), mapping = aes(colour = results[,'imps'])),
+               diag = 'blank') +
+    scale_colour_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = colourbrks, name = "Scale", labels = colournames) +
+    theme(legend.position = 'right') +
+    theme_minimal()
+  print(g)
+  return(results)
 }

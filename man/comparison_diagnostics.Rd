@@ -8,9 +8,10 @@ comparison_diagnostics(
   emulator,
   input_points,
   output_points,
-  sd = 3,
   output_name,
-  plt = T
+  sd = 3,
+  plt = T,
+  ...
 )
 }
 \arguments{
@@ -20,11 +21,13 @@ comparison_diagnostics(
 
 \item{output_points}{The outputs, \code{f(x)}, from the simulator.}
 
-\item{sd}{Numeric: the allowed number of standard deviations (default: 3).}
-
 \item{output_name}{Optional. A name for the output.}
 
+\item{sd}{Numeric: the allowed number of standard deviations (default: 3).}
+
 \item{plt}{Should a plot be shown (default: T).}
+
+\item{...}{Dummy parameters (for compatibility with diagnostic wrapper)}
 }
 \value{
 A list of points whose emulator value is outside the allowed standard deviation.

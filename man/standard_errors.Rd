@@ -4,7 +4,14 @@
 \alias{standard_errors}
 \title{Emulator Standard Errors}
 \usage{
-standard_errors(emulator, input_points, output_points, output_name, plt = T)
+standard_errors(
+  emulator,
+  input_points,
+  output_points,
+  output_name,
+  plt = T,
+  ...
+)
 }
 \arguments{
 \item{emulator}{An \code{\link{Emulator}} object.}
@@ -16,6 +23,8 @@ standard_errors(emulator, input_points, output_points, output_name, plt = T)
 \item{output_name}{Optional. A name for the output.}
 
 \item{plt}{Should a plot be shown (default: T).}
+
+\item{...}{Dummy parameters (for compatibility with diagnostic wrapper)}
 }
 \value{
 A list of standard errors.
