@@ -10,6 +10,7 @@ generate_new_runs(
   n_points = 10 * length(ranges),
   z,
   method = "lhs",
+  include_line = TRUE,
   cutoff = 3,
   ...
 )
@@ -24,6 +25,8 @@ generate_new_runs(
 \item{z}{Checks implausibility of sample points to restrict to only non-implausible points.}
 
 \item{method}{Any of 'lhs', 'slice', 'optical'.}
+
+\item{include_line}{Should line sampling be applied after point generation? Default: TRUE.}
 
 \item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3}
 
@@ -69,6 +72,13 @@ output points) in order to expedite the initial set-up of the sampling strategy.
 For any sampling strategy, the parameters \code{emulators}, \code{ranges} and
 \code{z} must be specified. If the method is 'slice', then the parameter \code{x}
 is necessary. All other parameters are optional.
+
+After the first round of sampling, if \code{line_sample} is enabled, an exploration of the
+boundary of the non-implausible region is performed as follows. Two points are chosen at
+random, and a number of points are sampled uniformly along the line connecting these points.
+The sampled points are tested for implausibility, and (provided more than 50% but not all
+of the points are non-implausible) the most separated of the points replace the two initial
+points.
 }
 \examples{
 ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
@@ -91,5 +101,5 @@ pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
 non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
- method = 'importance', cutoff = 4, plausible_set = non_imp_sample)
+ method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
 }

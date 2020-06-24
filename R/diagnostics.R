@@ -318,16 +318,17 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
   melted_df1 <- reshape2::melt(df1, id.vars = 'cutoff')
   melted_df2 <- reshape2::melt(df2, id.vars = 'cutoff')
   g <- ggplot(data = melted_df1, aes(x = cutoff, y = value, group = variable, colour = variable)) +
-    geom_line(lwd = 1) +
-    geom_line(data = plyr::mutate(melted_df2, value = value/max(value)), lwd = 0.5) +
+    geom_line(lwd = 1.5) +
+    #geom_line(data = plyr::mutate(melted_df2, value = value/max(value)), lwd = 0.5) +
     scale_colour_viridis(discrete = TRUE, option = 'cividis', labels = function(b) {paste0(round(as.numeric(b)*100, 0), "%")}) +
     scale_x_continuous("Implausibility cut-off", labels = function(b) {round(b, 1)}) +
     scale_y_continuous("Removed", labels = function(b) {
       paste0(round(b*100,0),"%")
-    },
-    sec.axis = sec_axis(~.*max(melted_df2$value), name = "Misclassified", labels = function(b) {
-      paste0(round(b*100,0), "%")
-    })) +
+    } #,
+    #sec.axis = sec_axis(~.*max(melted_df2$value), name = "Misclassified", labels = function(b) {
+    #  paste0(round(b*100,0), "%")
+    #})
+    ) +
     labs(title = "Space removed as a function of implausibility cut-off and structural discrepancy", colour = "% Structural\n Disc.", x = "Cut-off", y = "% removed") +
     theme_minimal()
   print(g)
@@ -389,7 +390,7 @@ validation_pairs <- function(ems, validation_points, z, orig_ranges) {
   }
   g <- ggpairs(results, columns = 1:length(orig_ranges), aes(colour = results[,'bad']), legend = c(1,2),
                title = "Emulator Diagnostics (lower) and Emulator Implausibility (upper)",
-               lower = list(continuous = wrap(limfun), mapping = aes(colour = results[,'imps'])),
+               lower = list(continuous = wrap(limfun), mapping = aes(colour = results[,'bad'])),
                upper = list(continuous = wrap(limfun), mapping = aes(colour = results[,'imps'])),
                diag = 'blank') +
     scale_colour_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = colourbrks, name = "Scale", labels = colournames) +

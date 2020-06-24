@@ -36,6 +36,13 @@
 #' \code{z} must be specified. If the method is 'slice', then the parameter \code{x}
 #' is necessary. All other parameters are optional.
 #'
+#' After the first round of sampling, if \code{line_sample} is enabled, an exploration of the
+#' boundary of the non-implausible region is performed as follows. Two points are chosen at
+#' random, and a number of points are sampled uniformly along the line connecting these points.
+#' The sampled points are tested for implausibility, and (provided more than 50% but not all
+#' of the points are non-implausible) the most separated of the points replace the two initial
+#' points.
+#'
 #' @importFrom mvtnorm dmvnorm rmvnorm
 #' @importFrom stats setNames runif dist
 #'
@@ -45,6 +52,7 @@
 #' @param z Checks implausibility of sample points to restrict to only non-implausible points.
 #' @param method Any of 'lhs', 'slice', 'optical'.
 #' @param cutoff Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3
+#' @param include_line Should line sampling be applied after point generation? Default: TRUE.
 #' @param ... Any parameters that need to be passed to a particular method (see below)
 #'
 #' @return A \code{data.frame} containing the set of new points to simulate at.
@@ -71,17 +79,20 @@
 #'  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
 #' non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 #' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
-#'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample)
-generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', cutoff = 3, ...) {
+#'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', include_line = TRUE, cutoff = 3, ...) {
   if (method == 'lhs')
-    return(lhs_generation(emulators, ranges, n_points, z, cutoff, ...))
-  if (method == 'importance')
-    return(importance_sample(emulators, ranges, n_points, z, cutoff, ...))
-  if (method == 'slice')
-    return(slice_generation(emulators, ranges, n_points, z, cutoff, ...))
-  if (method == 'optical')
-    return(optical_depth_generation(emulators, ranges, n_points, z, cutoff, ...))
-  stop("Unknown method used. Options are 'lhs', 'slice', 'optical', 'importance'.")
+    points <- lhs_generation(emulators, ranges, n_points, z, cutoff, ...)
+  else if (method == 'importance')
+    points <- importance_sample(emulators, ranges, n_points, z, cutoff, ...)
+  else if (method == 'slice')
+    points <- slice_generation(emulators, ranges, n_points, z, cutoff, ...)
+  else if (method == 'optical')
+    points <- optical_depth_generation(emulators, ranges, n_points, z, cutoff, ...)
+  else stop("Unknown method used. Options are 'lhs', 'slice', 'optical', 'importance'.")
+  if (include_line)
+    points <- line_sample(emulators, points, z, ranges)
+  return(points)
 }
 
 # A function to perform lhs sampling
@@ -200,4 +211,43 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     }
   }
   return(setNames(data.frame(out_arr), names(plausible_set)))
+}
+
+# Line sampling
+line_sample <- function(ems, points, z, ranges, n_lines = 10, cutoff = 3) {
+  range_func <- function(x, ranges) {
+    all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
+  }
+  i <- 1
+  while (i <= n_lines) {
+    sampled <- sample(nrow(points), 2)
+    two_points <- points[sampled,]
+    x1 <- points[sampled[1],]
+    x2 <- points[sampled[2],]
+    satisfies <- FALSE
+    lambda <- seq(-1, 1, length.out = 10)
+    counter <- 0
+    while(!satisfies) {
+      counter <- counter + 1
+      if (counter > 10) {
+        satisfies <- TRUE
+        i <- i - 1
+        next
+      }
+      line_points <- do.call('rbind', purrr::map(lambda, ~x1+.*(x1-x2)))
+      line_imps <- nth_implausible(ems, line_points, z)
+      restrict_points <- line_points[line_imps <= cutoff & apply(line_points, 1, range_func, ranges),]
+      if (nrow(restrict_points) == nrow(line_points)) lambda = 1.1*lambda
+      else if (nrow(restrict_points) < 0.5*nrow(line_points)) lambda = 0.9*lambda
+      else {
+        satisfies = TRUE
+        new_x1 <- restrict_points[1,]
+        new_x2 <- restrict_points[nrow(restrict_points),]
+        points[sampled[1],] <- new_x1
+        points[sampled[2],] <- new_x2
+      }
+    }
+    i <- i + 1
+  }
+  return(points)
 }
