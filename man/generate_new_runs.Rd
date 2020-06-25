@@ -12,6 +12,7 @@ generate_new_runs(
   method = "lhs",
   include_line = TRUE,
   cutoff = 3,
+  plausible_set,
   ...
 )
 }
@@ -29,6 +30,8 @@ generate_new_runs(
 \item{include_line}{Should line sampling be applied after point generation? Default: TRUE.}
 
 \item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3}
+
+\item{plausible_set}{Optional - a set of non-implausible points from which to start.}
 
 \item{...}{Any parameters that need to be passed to a particular method (see below)}
 }

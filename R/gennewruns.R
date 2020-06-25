@@ -53,6 +53,7 @@
 #' @param method Any of 'lhs', 'slice', 'optical'.
 #' @param cutoff Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3
 #' @param include_line Should line sampling be applied after point generation? Default: TRUE.
+#' @param plausible_set Optional - a set of non-implausible points from which to start.
 #' @param ... Any parameters that need to be passed to a particular method (see below)
 #'
 #' @return A \code{data.frame} containing the set of new points to simulate at.
@@ -80,18 +81,18 @@
 #' non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 #' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
-generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', include_line = TRUE, cutoff = 3, ...) {
-  if (method == 'lhs')
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', include_line = TRUE, cutoff = 3, plausible_set, ...) {
+  if (missing(plausible_set) || method == 'lhs')
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff, ...)
-  else if (method == 'importance')
-    points <- importance_sample(emulators, ranges, n_points, z, cutoff, ...)
+  else points <- plausible_set
+  if (method == 'lhs') return(points)
+  if (method == 'importance')
+    points <- importance_sample(emulators, ranges, n_points, z, cutoff, plausible_set = points, ...)
   else if (method == 'slice')
-    points <- slice_generation(emulators, ranges, n_points, z, cutoff, ...)
+    points <- slice_generation(emulators, ranges, n_points, z, cutoff, x = unlist(points[sample(nrow(points), 1),]), ...)
   else if (method == 'optical')
-    points <- optical_depth_generation(emulators, ranges, n_points, z, cutoff, ...)
+    points <- optical_depth_generation(emulators, ranges, n_points, z, cutoff, plausible_set = points)
   else stop("Unknown method used. Options are 'lhs', 'slice', 'optical', 'importance'.")
-  if (include_line)
-    points <- line_sample(emulators, points, z, ranges)
   return(points)
 }
 
@@ -214,7 +215,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
 }
 
 # Line sampling
-line_sample <- function(ems, points, z, ranges, n_lines = 10, cutoff = 3) {
+line_sample <- function(ems, points, z, ranges, n_lines = 20, cutoff = 3) {
   range_func <- function(x, ranges) {
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
@@ -241,10 +242,13 @@ line_sample <- function(ems, points, z, ranges, n_lines = 10, cutoff = 3) {
       else if (nrow(restrict_points) < 0.5*nrow(line_points)) lambda = 0.9*lambda
       else {
         satisfies = TRUE
+        extra_points <- restrict_points[2:(nrow(restrict_points)-1),]
+        extra_points <- extra_points[abs(line_imps-cutoff)<0.1,]
         new_x1 <- restrict_points[1,]
         new_x2 <- restrict_points[nrow(restrict_points),]
         points[sampled[1],] <- new_x1
         points[sampled[2],] <- new_x2
+        points <- rbind(points, extra_points)
       }
     }
     i <- i + 1

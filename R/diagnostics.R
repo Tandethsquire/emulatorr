@@ -253,12 +253,12 @@ validation_plots <- function(emulators, input_points, output_names) {
 #' Space Removal
 #'
 #' Finds the proportion of space removed as a function of implausibility cut-off, and of structural
-#' discrepancy. Also shows the proportion of misclassifications given a chosen cut-off (applied to
-#' both the simulator and emulator implausibilities).
+#' discrepancy, or changed variance.
 #'
-#' The misclassifications are checked using the validation set from the current wave; the reduction
-#' in space is found by evaluating over a p^d regular grid, where p is chosen by n_points and d is
-#' the dimension of the input space.
+#' The reduction in space is found by evaluating over a p^d regular grid, where p is chosen by
+#' \code{n_points} and d is the dimension of the input space. Larger values of \code{n_points}
+#' will give a more accurate reflection of removed space, at high computational cost. For the
+#' purpose of quick diagnostics, \code{n_points = 5} is acceptable.
 #'
 #' @import ggplot2
 #' @importFrom stats setNames
@@ -271,6 +271,7 @@ validation_plots <- function(emulators, input_points, output_names) {
 #' @param n_points The number of points in each dimension of the grid.
 #' @param u_mod The percentage differences in structural discrepancy to examine.
 #' @param intervals The set of implausibility cut-offs to consider.
+#' @param modified What should be changed: model discrepancy (disc) or emulator variance (var)?
 #'
 #' @return A list of two \code{data.frame}s, one for removed space and one for misclassifications.
 #' @export
@@ -289,34 +290,57 @@ validation_plots <- function(emulators, input_points, output_names) {
 #' removal <- space_removed(ems, GillespieValidation, targets,
 #'  n_points = 5, u_mod = seq(0.75, 1.25, by = 0.25), intervals = seq(2, 6, by = 0.1))
 #'
-space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod = seq(0.8, 1.2, by = 0.1), intervals = seq(0, 10, length.out = 200)) {
+space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod = seq(0.8, 1.2, by = 0.1), intervals = seq(0, 10, length.out = 200), modified = 'disc') {
   value <- variable <- NULL
   in_names <- names(emulators[[1]]$ranges)
   z_vals <- purrr::map_dbl(z, ~.$val)
   z_sigs <- purrr::map_dbl(z, ~.$sigma)
   on_grid <- setNames(expand.grid(purrr::map(emulators[[1]]$ranges, ~seq(.[[1]], .[[2]], length.out = n_points))), in_names)
-  em_exps <- data.frame(purrr::map(emulators, ~.$get_exp(on_grid)))
-  em_vars <- data.frame(purrr::map(emulators, ~.$get_cov(on_grid)))
-  valid_exps <- data.frame(purrr::map(emulators, ~.$get_exp(validation_points[,in_names])))
-  valid_vars <- data.frame(purrr::map(emulators, ~.$get_cov(validation_points[,in_names])))
   imp_array <- array(0, dim = c(length(intervals), length(u_mod)))
-  misclass_arr <- array(0, dim = c(length(intervals), length(u_mod)))
-  for (i in u_mod) {
-    imps <- abs(em_exps - z_vals)/sqrt(em_vars + (z_sigs * i)^2)
-    m_imps <- apply(imps, 1, max)
-    cutoff <- purrr::map_dbl(intervals, ~1-length(m_imps[m_imps <= .])/length(m_imps))
-    em_imps <- abs(valid_exps - z_vals)/sqrt(valid_vars + (z_sigs * i)^2)
-    sim_imps <- abs(validation_points[,!names(validation_points) %in% in_names] - z_vals)/(z_sigs * i)
-    misc <- purrr::map_dbl(intervals, ~sum(apply(em_imps > . & sim_imps <= ., 1, purrr::some, isTRUE), na.rm = TRUE))/length(validation_points[,1])
-    imp_array[, match(i, u_mod)] <- cutoff
-    misclass_arr[, match(i, u_mod)] <- misc
+  if (!(modified %in% c('disc', 'var', 'corr'))) {
+    warning("Unrecognised varying parameter. Setting to structural discrepancy (disc).")
+    modified = 'disc'
+  }
+  if (modified == 'disc') {
+    em_exps <- data.frame(purrr::map(emulators, ~.$get_exp(on_grid)))
+    em_vars <- data.frame(purrr::map(emulators, ~.$get_cov(on_grid)))
+    #valid_exps <- data.frame(purrr::map(emulators, ~.$get_exp(validation_points[,in_names])))
+    #valid_vars <- data.frame(purrr::map(emulators, ~.$get_cov(validation_points[,in_names])))
+    #misclass_arr <- array(0, dim = c(length(intervals), length(u_mod)))
+    for (i in u_mod) {
+      num <- data.frame(t(apply(em_exps, 1, function(x) abs(x - z_vals))))
+      denom <- data.frame(t(apply(em_vars, 1, function(x) sqrt(x + (i*z_sigs)^2))))
+      imps <- num/denom
+      m_imps <- apply(imps, 1, max)
+      cutoff <- purrr::map_dbl(intervals, ~1-length(m_imps[m_imps <= .])/length(m_imps))
+      #em_imps <- abs(valid_exps - z_vals)/sqrt(valid_vars + (z_sigs * i)^2)
+      #sim_imps <- abs(validation_points[,!names(validation_points) %in% in_names] - z_vals)/(z_sigs * i)
+      #misc <- purrr::map_dbl(intervals, ~sum(apply(em_imps > . & sim_imps <= ., 1, purrr::some, isTRUE), na.rm = TRUE))/length(validation_points[,1])
+      imp_array[, match(i, u_mod)] <- cutoff
+      #misclass_arr[, match(i, u_mod)] <- misc
+    }
+  }
+  else {
+    for (i in u_mod) {
+      ems <- purrr::map(emulators, ~.$o_em$clone())
+      if (modified == 'var')
+        for (j in 1:length(ems)) ems[[j]]$u_sigma <- sqrt(i)*ems[[j]]$u_sigma
+      else
+        for (j in 1:length(ems)) ems[[j]]$theta <- sqrt(i)*ems[[j]]$theta
+      ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(setNames(cbind(eval_funcs(scale_input, emulators[[.]]$in_data, emulators[[.]]$ranges, FALSE), emulators[[.]]$out_data), c(names(emulators[[.]]$in_data), "out")), 'out'))
+      imps <- nth_implausible(ems, on_grid, z)
+      cutoff <- purrr::map_dbl(intervals, ~1-length(imps[imps <= .])/length(imps))
+      imp_array[, match(i, u_mod)] <- cutoff
+    }
   }
   df1 <- setNames(data.frame(imp_array), u_mod)
   df1$cutoff <- intervals
-  df2 <- setNames(data.frame(misclass_arr), u_mod)
-  df2$cutoff <- intervals
+  #df2 <- setNames(data.frame(misclass_arr), u_mod)
+  #df2$cutoff <- intervals
   melted_df1 <- reshape2::melt(df1, id.vars = 'cutoff')
-  melted_df2 <- reshape2::melt(df2, id.vars = 'cutoff')
+  #melted_df2 <- reshape2::melt(df2, id.vars = 'cutoff')
+  tit <- switch(modified, 'disc' = 'structural discrepancy', 'var' = 'variance inflation', 'corr' = 'correlation length inflation')
+  subtit <- switch(modified, 'disc' = '% Structural\nDiscrepancy', 'var' = '% Variance\nInflation', 'corr' = '% Theta\nInflation')
   g <- ggplot(data = melted_df1, aes(x = cutoff, y = value, group = variable, colour = variable)) +
     geom_line(lwd = 1.5) +
     #geom_line(data = plyr::mutate(melted_df2, value = value/max(value)), lwd = 0.5) +
@@ -329,10 +353,11 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
     #  paste0(round(b*100,0), "%")
     #})
     ) +
-    labs(title = "Space removed as a function of implausibility cut-off and structural discrepancy", colour = "% Structural\n Disc.", x = "Cut-off", y = "% removed") +
+    labs(title = paste("Space removed as a function of implausibility cut-off and", tit), colour = subtit, x = "Cut-off", y = "% removed") +
     theme_minimal()
   print(g)
-  return(list(reduced = df1, misclassed = df2))
+  return(df1)
+  #return(list(reduced = df1, misclassed = df2))
 }
 
 #' Validation Set Comparisons and Implausibility
@@ -384,7 +409,7 @@ validation_pairs <- function(ems, validation_points, z, orig_ranges) {
   colournames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
   limfun <- function(data, mapping) {
     ggplot(data = data, mapping = mapping) +
-      geom_point() +
+      geom_point(cex = 2) +
       xlim(orig_ranges[[rlang::quo_get_expr(mapping$x)]]) +
       ylim(orig_ranges[[rlang::quo_get_expr(mapping$y)]])
   }

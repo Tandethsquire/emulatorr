@@ -23,8 +23,10 @@ Emulator <- R6::R6Class(
     model = NULL,
     active_vars = NULL,
     corr = NULL,
-    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL) {
+    o_em = NULL,
+    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL) {
       self$model <- model
+      self$o_em <- original_em
       self$basis_f <- basis_f
       self$beta_mu <- beta$mu
       self$beta_sigma <- beta$sigma
@@ -155,7 +157,7 @@ Emulator <- R6::R6Class(
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
-                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)], delta = self$delta)
+                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)], delta = self$delta, original_em = self)
       return(new_em)
     },
     print = function(...) {

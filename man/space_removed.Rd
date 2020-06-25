@@ -10,7 +10,8 @@ space_removed(
   z,
   n_points = 10,
   u_mod = seq(0.8, 1.2, by = 0.1),
-  intervals = seq(0, 10, length.out = 200)
+  intervals = seq(0, 10, length.out = 200),
+  modified = "disc"
 )
 }
 \arguments{
@@ -25,19 +26,21 @@ space_removed(
 \item{u_mod}{The percentage differences in structural discrepancy to examine.}
 
 \item{intervals}{The set of implausibility cut-offs to consider.}
+
+\item{modified}{What should be changed: model discrepancy (disc) or emulator variance (var)?}
 }
 \value{
 A list of two \code{data.frame}s, one for removed space and one for misclassifications.
 }
 \description{
 Finds the proportion of space removed as a function of implausibility cut-off, and of structural
-discrepancy. Also shows the proportion of misclassifications given a chosen cut-off (applied to
-both the simulator and emulator implausibilities).
+discrepancy, or changed variance.
 }
 \details{
-The misclassifications are checked using the validation set from the current wave; the reduction
-in space is found by evaluating over a p^d regular grid, where p is chosen by n_points and d is
-the dimension of the input space.
+The reduction in space is found by evaluating over a p^d regular grid, where p is chosen by
+\code{n_points} and d is the dimension of the input space. Larger values of \code{n_points}
+will give a more accurate reflection of removed space, at high computational cost. For the
+purpose of quick diagnostics, \code{n_points = 5} is acceptable.
 }
 \examples{
 ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
