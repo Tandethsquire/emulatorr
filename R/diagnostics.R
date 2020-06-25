@@ -309,7 +309,7 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
     #misclass_arr <- array(0, dim = c(length(intervals), length(u_mod)))
     for (i in u_mod) {
       num <- data.frame(t(apply(em_exps, 1, function(x) abs(x - z_vals))))
-      denom <- data.frame(t(apply(em_vars, 1, function(x) sqrt(x + (i*z_sigs)^2))))
+      denom <- data.frame(t(apply(em_vars, 1, function(x) sqrt(x + (i * z_sigs)^2))))
       imps <- num/denom
       m_imps <- apply(imps, 1, max)
       cutoff <- purrr::map_dbl(intervals, ~1-length(m_imps[m_imps <= .])/length(m_imps))
@@ -324,9 +324,9 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
     for (i in u_mod) {
       ems <- purrr::map(emulators, ~.$o_em$clone())
       if (modified == 'var')
-        for (j in 1:length(ems)) ems[[j]]$u_sigma <- sqrt(i)*ems[[j]]$u_sigma
+        for (j in 1:length(ems)) ems[[j]]$u_sigma <- i*ems[[j]]$u_sigma
       else
-        for (j in 1:length(ems)) ems[[j]]$theta <- sqrt(i)*ems[[j]]$theta
+        for (j in 1:length(ems)) ems[[j]]$corr <- function(x, xp) exp_sq(x, xp, i*ems[[j]]$theta) ## This will only work if the correlation function WAS exp_sq!!
       ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(setNames(cbind(eval_funcs(scale_input, emulators[[.]]$in_data, emulators[[.]]$ranges, FALSE), emulators[[.]]$out_data), c(names(emulators[[.]]$in_data), "out")), 'out'))
       imps <- nth_implausible(ems, on_grid, z)
       cutoff <- purrr::map_dbl(intervals, ~1-length(imps[imps <= .])/length(imps))
