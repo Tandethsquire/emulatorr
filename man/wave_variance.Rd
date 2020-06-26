@@ -8,6 +8,7 @@ wave_variance(
   waves,
   output_names,
   plot_dirs = names(waves[[1]][[1]]$ranges)[1:2],
+  wave_numbers = 1:length(waves),
   n_points = 40,
   sd = FALSE
 )
@@ -18,6 +19,8 @@ wave_variance(
 \item{output_names}{The list of desired outputs to be plotted}
 
 \item{plot_dirs}{The (two) input parameters to be plotted.}
+
+\item{wave_numbers}{A numeric vector of which waves to plot.}
 
 \item{n_points}{The number of grid points per plotting dimension. Default: 20}
 
