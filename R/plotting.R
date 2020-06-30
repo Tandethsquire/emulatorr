@@ -76,7 +76,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
       outputs <- em$implausibility(grid, targets)
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
       impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
-      included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid[,'value'] < .)), TRUE)
+      included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(outputs < .)), TRUE)
     }
     else stop("Could not plot output.")
     data_grid <- data.frame(cbind(grid, outputs)) %>% setNames(c(names(em$ranges), var_name))
@@ -141,7 +141,8 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
         data_grid <- cbind(data_grid, em[[i]]$implausibility(grid, targets[[i]]))
       else stop("Could not plot output.")
     }
-    data_grid <- data_grid %>% setNames(c(names(em[[1]]$ranges), names(em))) %>% melt(id.vars = names(em[[1]]$ranges))
+    em_names <- purrr::map_chr(em, ~.$output_name)
+    data_grid <- data_grid %>% setNames(c(names(em[[1]]$ranges), em_names)) %>% melt(id.vars = names(em[[1]]$ranges))
     g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]]))
     if (var_name == 'exp' || var_name == 'var' || var_name == 'sd') {
       max_val <- max(data_grid$value)

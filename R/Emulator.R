@@ -24,7 +24,8 @@ Emulator <- R6::R6Class(
     active_vars = NULL,
     corr = NULL,
     o_em = NULL,
-    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL) {
+    output_name = NULL,
+    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL, out_name = NULL) {
       self$model <- model
       self$o_em <- original_em
       self$basis_f <- basis_f
@@ -34,6 +35,7 @@ Emulator <- R6::R6Class(
       self$u_sigma <- u$sigma
       self$delta <- delta
       self$corr <- u$corr
+      if (!is.null(out_name)) self$output_name <- out_name
       self$active_vars <- purrr::map_lgl(seq_along(ranges), function(x) {
         is_in_func <- eval_funcs(self$basis_f, c(rep(0,x-1), 1, rep(0, length(ranges)-x))) == 1
         length(is_in_func[is_in_func]) > 1
@@ -157,7 +159,8 @@ Emulator <- R6::R6Class(
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
-                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)], delta = self$delta, original_em = self)
+                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[,c(names(self$ranges), out_name)],
+                             delta = self$delta, original_em = self, out_name = out_name)
       return(new_em)
     },
     print = function(...) {
