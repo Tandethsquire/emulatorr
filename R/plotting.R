@@ -74,8 +74,8 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
     }
     else if (var_name == 'imp' && !is.null(targets)) {
       outputs <- em$implausibility(grid, targets)
-      impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
+      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(outputs < .)), TRUE)
     }
     else stop("Could not plot output.")
@@ -93,7 +93,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
     }
     else if (var_name == "imp") {
       cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
       g <- g +
         geom_contour_filled(aes(z = data_grid[,var_name]), breaks = impbrks[included], colour = 'black') +
         scale_fill_manual(values = cols[included], labels = impnames[included], guide = guide_legend(reverse = TRUE)) +
@@ -113,10 +113,10 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
     data_grid <- grid
     if (var_name == 'maximp' && !is.null(targets)) {
       data_grid <- cbind(data_grid, nth_implausible(em, grid, targets, ...)) %>% setNames(c(names(em[[1]]$ranges), "I"))
-      impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
+      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
       cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid$I < .)), TRUE)
       g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]])) +
         geom_contour_filled(aes(z = I), breaks = impbrks[included], colour = 'black') +
@@ -154,10 +154,10 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
       g <- g + scale_fill_viridis(discrete = TRUE, option = col, name = nm, labels = bin_vals)
     }
     else {
-      impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+      impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
+      impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
       cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
+                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid[,'value'] < .)), TRUE)
       g <- g +
         geom_contour_filled(aes(z = data_grid[,'value']), breaks = impbrks[included], colour = 'black') +
