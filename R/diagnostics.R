@@ -421,6 +421,6 @@ validation_pairs <- function(ems, validation_points, z, orig_ranges) {
     scale_colour_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = colourbrks, name = "Scale", labels = colournames) +
     theme(legend.position = 'right') +
     theme_minimal()
-  print(g)
+  print(g, progress = FALSE)
   return(results)
 }
