@@ -382,6 +382,7 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
 #' @param validation_points The validation set to be plotted
 #' @param z The target values for each emulated output
 #' @param orig_ranges The original ranges for the input parameters (if desired)
+#' @param ... Any additional parameters to be passed to internal functions.
 #'
 #' @return A data.frame containing the validation points, with goodness-of-fit and implausibility.
 #'
@@ -397,14 +398,14 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
 #'  list(val = 689, sigma = 14.32)
 #' )
 #' validation_pairs(ems, GillespieValidation, targets)
-validation_pairs <- function(ems, validation_points, z, orig_ranges) {
+validation_pairs <- function(ems, validation_points, z, orig_ranges, ...) {
   if(missing(orig_ranges))
     orig_ranges <- ems[[1]]$ranges
   em_vals <- data.frame(purrr::map(ems, ~.$get_exp(validation_points[,names(ems[[1]]$ranges)])))
   em_uncert <- data.frame(purrr::map(ems, ~.$get_cov(validation_points[,names(ems[[1]]$ranges)])))
   sim_vals <- validation_points[,!(names(validation_points)%in%names(ems[[1]]$ranges))]
   results <- setNames(cbind(validation_points[,names(ems[[1]]$ranges)], apply(abs(em_vals - sim_vals)/sqrt(em_uncert), 1, max)), c(names(ems[[1]]$ranges), 'bad'))
-  results$imps <- nth_implausible(ems, validation_points[,names(ems[[1]]$ranges)], z)
+  results$imps <- nth_implausible(ems, validation_points[,names(ems[[1]]$ranges)], z, ...)
   colourbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
   colournames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
   limfun <- function(data, mapping) {
@@ -417,10 +418,10 @@ validation_pairs <- function(ems, validation_points, z, orig_ranges) {
                title = "Emulator Diagnostics (lower) and Emulator Implausibility (upper)",
                lower = list(continuous = wrap(limfun), mapping = aes(colour = results[,'bad'])),
                upper = list(continuous = wrap(limfun), mapping = aes(colour = results[,'imps'])),
-               diag = 'blank') +
+               diag = 'blank', progress = FALSE) +
     scale_colour_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = colourbrks, name = "Scale", labels = colournames) +
     theme(legend.position = 'right') +
     theme_minimal()
-  print(g, progress = FALSE)
+  print(g)
   return(results)
 }

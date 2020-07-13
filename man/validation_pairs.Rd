@@ -4,7 +4,7 @@
 \alias{validation_pairs}
 \title{Validation Set Comparisons and Implausibility}
 \usage{
-validation_pairs(ems, validation_points, z, orig_ranges)
+validation_pairs(ems, validation_points, z, orig_ranges, ...)
 }
 \arguments{
 \item{ems}{The list of trained emulators}
@@ -14,6 +14,8 @@ validation_pairs(ems, validation_points, z, orig_ranges)
 \item{z}{The target values for each emulated output}
 
 \item{orig_ranges}{The original ranges for the input parameters (if desired)}
+
+\item{...}{Any additional parameters to be passed to internal functions.}
 }
 \value{
 A data.frame containing the validation points, with goodness-of-fit and implausibility.

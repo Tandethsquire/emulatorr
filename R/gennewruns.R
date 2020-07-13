@@ -81,7 +81,7 @@
 #' non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 #' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
-generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'lhs', include_line = TRUE, cutoff = 3, plausible_set, ...) {
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, ...) {
   if (missing(plausible_set) || method == 'lhs')
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff, ...)
   else points <- plausible_set

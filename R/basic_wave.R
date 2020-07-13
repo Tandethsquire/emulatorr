@@ -32,6 +32,8 @@
 #' @param sample_method The method to be used to find new points (see \code{\link{generate_new_runs}})
 #' @param ... Any optional parameters to pass to \code{\link{emulator_from_data}}
 #'
+#' @importFrom purrr %>%
+#'
 #' @return A list of base emulators, trained emulators for this wave, new sample points, and new ranges.
 #' @export
 #'
@@ -46,7 +48,7 @@
 #'  #wave1 <- full_wave(GillespieSIR, GillespieValidation, ranges, outputs, targets,
 #'  # n_points = 30, deltas = rep(0.1, 3), quadratic = TRUE)
 
-full_wave <- function(input_data, validation_data, ranges, output_names, targets, n_points = 40, previous_wave = NULL, sample_method = 'lhs', ...) {
+full_wave <- function(input_data, validation_data, ranges, output_names, targets, n_points = 40, previous_wave = NULL, sample_method = 'importance', ...) {
   targets <- setNames(targets, output_names)
   if (is.null(previous_wave))
     base_emulators <- emulator_from_data(input_data, output_names, ranges, ...)
@@ -69,26 +71,8 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
     }
   }
   if (length(trained_emulators) < length(output_names)/2) stop("Not enough outputs can be emulated.")
-  cat("Completed diagnostics. Finding non-implausible region...\n")
-  makeGrid <- function(ranges, npoints) {
-    seqs <- purrr::map(ranges, ~seq(.x[[1]], .x[[2]], length.out = npoints))
-    return(setNames(expand.grid(seqs), names(ranges)))
-  }
-  eval_grid <- makeGrid(ranges, n_points)
-  imps <- nth_implausible(trained_emulators, eval_grid, targets)
-  imp_data <- setNames(data.frame(cbind(eval_grid, imps)), c(names(ranges), "I"))
-  p_set <- imp_data[imp_data$I<=3,]
-  new_ranges <- lapply(p_set[,names(ranges)], function(x) c(min(x), max(x)))
   cat("Generating new sample points...\n")
-  if (sample_method == 'lhs')
-    new_points <- generate_new_runs(trained_emulators, new_ranges, z = targets)
-  else if (sample_method == 'slice') {
-    sample_point <- unlist(p_set[sample(seq_along(p_set), 1), names(ranges)], use.names = F)
-    new_points <- generate_new_runs(trained_emulators, new_ranges, z = targets, method = 'slice', x = sample_point)
-  }
-  else if (sample_method == 'optical')
-    new_points <- generate_new_runs(trained_emulators, ranges, z = targets, method = 'optical', plausible_set = p_set)
-  else
-    stop("Sampling method not recognised.")
+  new_points <- generate_new_runs(trained_emulators, ranges, n_points, targets, method = sample_method)
+  new_ranges <- purrr::map(names(ranges), ~c(min(new_points[,.]), max(new_points[,.]))) %>% setNames(names(ranges))
   return(list(base_emulators = base_emulators, emulators = trained_emulators, next_sample = new_points, new_ranges = new_ranges))
 }

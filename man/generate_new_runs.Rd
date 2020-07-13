@@ -9,7 +9,7 @@ generate_new_runs(
   ranges,
   n_points = 10 * length(ranges),
   z,
-  method = "lhs",
+  method = "importance",
   include_line = TRUE,
   cutoff = 3,
   plausible_set,

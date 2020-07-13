@@ -12,7 +12,7 @@ full_wave(
   targets,
   n_points = 40,
   previous_wave = NULL,
-  sample_method = "lhs",
+  sample_method = "importance",
   ...
 )
 }

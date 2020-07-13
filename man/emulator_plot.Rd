@@ -4,7 +4,14 @@
 \alias{emulator_plot}
 \title{Plot Emulator Outputs}
 \usage{
-emulator_plot(em, var_name = "exp", npoints = 40, targets = NULL, ...)
+emulator_plot(
+  em,
+  var_name = "exp",
+  npoints = 40,
+  targets = NULL,
+  cb = FALSE,
+  ...
+)
 }
 \arguments{
 \item{em}{A single \code{\link{Emulator}} object, or a list thereof}
@@ -14,6 +21,8 @@ emulator_plot(em, var_name = "exp", npoints = 40, targets = NULL, ...)
 \item{npoints}{The number of lattice points per input direction}
 
 \item{targets}{The observations. Required if plotting implausibility}
+
+\item{cb}{Should implausibility plots be coloured as colourblind friendly?}
 
 \item{...}{Any optional parameters for \code{\link{nth_implausible}}}
 }

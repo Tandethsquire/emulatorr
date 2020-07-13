@@ -24,6 +24,7 @@
 #' @param var_name The output to plot: options are described above
 #' @param npoints The number of lattice points per input direction
 #' @param targets The observations. Required if plotting implausibility
+#' @param cb Should implausibility plots be coloured as colourblind friendly?
 #' @param ... Any optional parameters for \code{\link{nth_implausible}}
 #'
 #' @return A ggplot object.
@@ -44,7 +45,7 @@
 #'  emulator_plot(t_ems, var_name = 'var', npoints = 10)
 #'  emulator_plot(t_ems, var_name = 'sd', npoints = 10)
 #'  emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 10)
-emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ...) {
+emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb = FALSE, ...) {
   makeGrid <- function(n_points, ranges) {
     grd <- expand.grid(seq(ranges[[1]][1], ranges[[1]][2], length.out = n_points), seq(ranges[[2]][1], ranges[[2]][2], length.out = n_points))
     if (length(ranges) > 2) {
@@ -92,7 +93,11 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
         scale_fill_viridis(discrete = TRUE, option = cols, name = nm, labels = bin_vals)
     }
     else if (var_name == "imp") {
-      cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+      if (cb)
+        cols <- c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
+                  '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
+      else
+        cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
                 '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
       g <- g +
         geom_contour_filled(aes(z = data_grid[,var_name]), breaks = impbrks[included], colour = 'black') +
@@ -115,7 +120,11 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
       data_grid <- cbind(data_grid, nth_implausible(em, grid, targets, ...)) %>% setNames(c(names(em[[1]]$ranges), "I"))
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
       impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
-      cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+      if (cb)
+        cols <- c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
+                  '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
+      else
+        cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
                 '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid$I < .)), TRUE)
       g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]])) +
@@ -156,8 +165,12 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, ..
     else {
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
       impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
-      cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
+      if (cb)
+        cols <-  c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
+                   '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
+      else
+        cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+                  '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid[,'value'] < .)), TRUE)
       g <- g +
         geom_contour_filled(aes(z = data_grid[,'value']), breaks = impbrks[included], colour = 'black') +
@@ -338,4 +351,44 @@ plot_lattice <- function(implausibilities, targets, ranges, np = 50, ...) {
     plot_out <- plot_out + draw_plot(to_plot$plt, x = to_plot$x/nvars, y = to_plot$y/nvars, width = 1/nvars, height = 1/nvars)
   }
   return(plot_out)
+}
+
+#' Plot Points of Waves
+#'
+#' Creates a set of pairs plots of the input points for multiple waves.
+#'
+#' For each pair of inputs, the points from a succession of waves are plotted,
+#' coloured according to the wave number. Histograms of the points for each input
+#' (broadly interpreted as marginal distributions for the inputs) are provided
+#' on the main diagonal.
+#'
+#' @importFrom purrr %>%
+#' @importFrom GGally ggpairs
+#'
+#' @param pts_list A list object, whose elements are data.frames of points
+#' @param in_names The input dimension names.
+#'
+#' @return A ggplot object.
+#' @export
+wave_points <- function(pts_list, in_names) {
+  wave <- NULL
+  out_lst <- list()
+  for (i in 0:(length(pts_list)-1))
+  {
+    out_lst[[i+1]] <- cbind(pts_list[[i+1]][,in_names], rep(i, nrow(pts_list[[i+1]]))) %>% setNames(c(in_names, 'wave'))
+  }
+  tot_dat <- do.call('rbind', out_lst)
+  tot_dat$wave <- as.factor(tot_dat$wave)
+  wrapfun <- function(data, mapping) {
+    ggplot(data = data, mapping = mapping) +
+      geom_point(cex = 1.5) +
+      geom_point(cex = 1.5, pch = 1, colour = 'black')
+  }
+  pal <- viridis::viridis(length(pts_list), option = 'D', direction = -1)
+  ggpairs(tot_dat, columns = 1:length(in_names), aes(colour = wave),
+          lower = list(continuous = wrapfun),
+          upper = 'blank', title = 'Wave points pairs plot', progress = FALSE) +
+    scale_colour_manual(values = pal) +
+    scale_fill_manual(values = alpha(pal, 0.5)) +
+    theme_bw()
 }
