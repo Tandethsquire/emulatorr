@@ -107,10 +107,14 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #' chosen using the Durham heuristic: this states that the correlation length should lie within
 #' [1/(n+1), 2/(n+1)] where n is the degree of the fitted surface (and the range of the parameter
 #' is [-1,1]). A value in this range is sampled uniformly: it may be useful to generate emulators
-#' allowing this randomness and use diagnostics to decide on a fixed value. The nugget is assumed
-#' to be 0 unless otherwise specified. The expectation E[u(x)] is assumed to be 0, and the
-#' variance \code{sigma^2} is taken from the residual squared error from the model used to fit the
-#' basis functions and betas.
+#' allowing this randomness and use diagnostics to decide on a fixed value. The expectation E[u(x)]
+#' is assumed to be 0, and the variance \code{sigma^2} is taken from the residual squared error
+#' from the model used to fit the basis functions and betas.
+#'
+#' If delta terms are provided, then the nugget terms for each emulator are defined using these.
+#' If they are not provided but a list of variabilities for each output are (in \code{ev}), then
+#' a rough estimate of the nugget terms is performed and the emulators obtain these terms. If
+#' neither is provided, the nugget terms are assumed to be identically zero for each emulator.
 #'
 #' The covariance between beta and u(x) is assumed to vanish.
 #'
@@ -128,6 +132,7 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #' @param bucov Optional: a list of functions giving the covariance between each of the beta
 #' parameters and u(x).
 #' @param deltas Optional: the nugget terms to include in u(x).
+#' @param ev Optional. Used for determining nugget terms in absence on delta
 #' @param quadratic Optional: should the regression surface be linear or quadratic? Default: F
 #' @param beta.var Optional: should the beta coefficient be assumed to be known or should model variance be included?
 #'
@@ -156,7 +161,7 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #'   deltas = c(0.1, 0.2, 0.2), quadratic = TRUE, beta.var = TRUE)
 emulator_from_data <- function(input_data, output_names, ranges,
                                input_names = names(ranges), beta, u,
-                               c_lengths, funcs, bucov, deltas,
+                               c_lengths, funcs, bucov, deltas, ev,
                                quadratic=F, beta.var = F) {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
@@ -213,5 +218,10 @@ emulator_from_data <- function(input_data, output_names, ranges,
     out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], ranges = ranges, delta = model_deltas[[.x]], model = models[[.x]]))
   else
     out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], bucov = bucov, ranges = ranges, delta = model_deltas[[.x]], model = models[[.x]]))
+  if (missing(deltas) && !missing(ev)) {
+    new_delta <- ev/purrr::map_dbl(out_ems, ~.$u_sigma)
+    new_delta <- purrr::map_dbl(new_delta, ~min(1/3, .))
+    return(emulator_from_data(input_data, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, new_delta, quadratic, beta.var))
+  }
   return(setNames(out_ems, output_names))
 }
