@@ -163,6 +163,19 @@ Emulator <- R6::R6Class(
                              delta = self$delta, original_em = self, out_name = out_name)
       return(new_em)
     },
+    set_sigma = function(sigma) {
+      if (is.null(self$o_em)) {
+        new_em <- self$clone()
+        new_em$u_sigma <- sigma
+        return(new_em)
+      }
+      else {
+        new_o_em <- self$o_em$clone()
+        new_o_em$u_sigma <- sigma
+        dat <- cbind(self$in_data, self$out_data) %>% setNames(c(names(self$ranges), self$output_name))
+        return(new_o_em$adjust(dat, self$output_name))
+      }
+    },
     print = function(...) {
       cat("Parameters and ranges: ", paste(names(self$ranges), paste0(self$ranges), sep = ": ", collapse= "; "), "\n")
       cat("Specifications: \n")

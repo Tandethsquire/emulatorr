@@ -15,6 +15,7 @@ emulator_from_data(
   funcs,
   bucov,
   deltas,
+  ev,
   quadratic = F,
   beta.var = F
 )
@@ -43,6 +44,8 @@ lists \code{list(mu, sigma, corr)}.}
 parameters and u(x).}
 
 \item{deltas}{Optional: the nugget terms to include in u(x).}
+
+\item{ev}{Optional. Used for determining nugget terms in absence on delta}
 
 \item{quadratic}{Optional: should the regression surface be linear or quadratic? Default: F}
 
@@ -75,10 +78,14 @@ The correlation function c(x,x') is taken to be \code{\link{exp_sq}}; the correl
 chosen using the Durham heuristic: this states that the correlation length should lie within
 [1/(n+1), 2/(n+1)] where n is the degree of the fitted surface (and the range of the parameter
 is [-1,1]). A value in this range is sampled uniformly: it may be useful to generate emulators
-allowing this randomness and use diagnostics to decide on a fixed value. The nugget is assumed
-to be 0 unless otherwise specified. The expectation E[u(x)] is assumed to be 0, and the
-variance \code{sigma^2} is taken from the residual squared error from the model used to fit the
-basis functions and betas.
+allowing this randomness and use diagnostics to decide on a fixed value. The expectation E[u(x)]
+is assumed to be 0, and the variance \code{sigma^2} is taken from the residual squared error
+from the model used to fit the basis functions and betas.
+
+If delta terms are provided, then the nugget terms for each emulator are defined using these.
+If they are not provided but a list of variabilities for each output are (in \code{ev}), then
+a rough estimate of the nugget terms is performed and the emulators obtain these terms. If
+neither is provided, the nugget terms are assumed to be identically zero for each emulator.
 
 The covariance between beta and u(x) is assumed to vanish.
 }
