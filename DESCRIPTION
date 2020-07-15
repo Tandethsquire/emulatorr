@@ -5,7 +5,7 @@ Version: 0.4.0
 Authors@R: person("Andrew", "Iskauskas", email = "andrew.iskauskas@durham.ac.uk", role = c('aut', 'cre'))
 Maintainer: Andrew Iskauskas <andrew.iskauskas@durham.ac.uk>
 Description: A set of functions for Bayes Linear emulation and history matching. For details on the mathematical background, there are many papers freely available on the topic; for details of the functions in this package, consult the manual or the help files for individual functions or objects.
-Suggests: knitr, rmarkdown
+Suggests: knitr, rmarkdown, SimInf, tidyr
 VignetteBuilder: knitr
 Depends: R (>= 3.5.0)
 Imports:
@@ -25,4 +25,4 @@ Imports:
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
