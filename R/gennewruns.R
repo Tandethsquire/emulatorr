@@ -179,7 +179,13 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
 
 # Importance Sampling from initial points
 importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, dist = "normal", debug = FALSE, plausible_set) {
-  J <- function(x) nth_implausible(ems, x, z) <= cutoff
+  #J <- function(x) nth_implausible(ems, x, z) <= cutoff
+  J <- function(x) {
+    for (i in 1:length(ems)) {
+      if (!ems[[i]]$implausibility(x, z[[i]], cutoff)) return(FALSE)
+    }
+    return(TRUE)
+  }
   range_func <- function(x, ranges) {
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
@@ -189,7 +195,8 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
   }
   pts_added <- 0
   out_arr <- array(0, dim = c(n_points, length(plausible_set)))
-  checking_points <- plausible_set[J(plausible_set),]
+  #checking_points <- plausible_set[apply(plausible_set, 1, J),]
+  checking_points <- plausible_set
   n_initial <- length(checking_points[,1])
   weights <- apply(checking_points, 1, function(x) 1/n_initial * sum(apply(checking_points, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
   min_w <- min(weights)

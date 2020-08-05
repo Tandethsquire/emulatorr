@@ -31,17 +31,20 @@ function_to_names <- function(f, var_names) {
 
 # Evaluate multiple functions over points
 eval_funcs <- function(funcs, points, ...) {
-  output <- NULL
-  if (typeof(funcs) == "closure")
-  {
-    try(output <- apply(points, 1, funcs, ...), silent = TRUE)
-    if (is.null(output)) try(output <- purrr::exec(funcs, points, ...), silent = TRUE)
+  pointsdim <- (length(dim(points)) != 0)
+  manyfuncs <- (typeof(funcs) != "closure")
+  if (manyfuncs && pointsdim)
+    return(apply(points, 1, function(x) purrr::map_dbl(funcs, purrr::exec, x, ...)))
+  if (manyfuncs)
+    return(purrr::map_dbl(funcs, purrr::exec, points, ...))
+  if (pointsdim) {
+    return(tryCatch(apply(points, 1, funcs, ...),
+                    error = function(cond1) {
+                      tryCatch(purrr::exec(funcs, points, ...),
+                               error = function(cond2) {
+                                 cat(cond1, cond2)
+                               })
+                    }))
   }
-  else
-  {
-    try(output <- apply(points, 1, function(x) purrr::map_dbl(funcs, purrr::exec, x, ...)), silent = TRUE)
-    if(is.null(output)) try(output <- purrr::map_dbl(funcs, purrr::exec, points, ...), silent = TRUE)
-  }
-  if(is.null(output)) stop("Could not evaluate functions at points.")
-  return(output)
+  return(purrr::exec(funcs, points, ...))
 }
