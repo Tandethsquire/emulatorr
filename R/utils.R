@@ -42,7 +42,7 @@ eval_funcs <- function(funcs, points, ...) {
                     error = function(cond1) {
                       tryCatch(purrr::exec(funcs, points, ...),
                                error = function(cond2) {
-                                 cat(cond1, cond2)
+                                 print(cond1, cond2)
                                })
                     }))
   }
