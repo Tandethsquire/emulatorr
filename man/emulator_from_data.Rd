@@ -16,8 +16,8 @@ emulator_from_data(
   bucov,
   deltas,
   ev,
-  quadratic = F,
-  beta.var = F
+  quadratic = FALSE,
+  beta.var = FALSE
 )
 }
 \arguments{
@@ -77,10 +77,9 @@ for the parameters is taken from \code{vcov(model)}.
 The correlation function c(x,x') is taken to be \code{\link{exp_sq}}; the correlation length is
 chosen using the Durham heuristic: this states that the correlation length should lie within
 [1/(n+1), 2/(n+1)] where n is the degree of the fitted surface (and the range of the parameter
-is [-1,1]). A value in this range is sampled uniformly: it may be useful to generate emulators
-allowing this randomness and use diagnostics to decide on a fixed value. The expectation E[u(x)]
-is assumed to be 0, and the variance \code{sigma^2} is taken from the residual squared error
-from the model used to fit the basis functions and betas.
+is [-1,1]). Maximum likelihod estimation is then applied to this range to find an acceptable
+correlation length, and the corresponding standard error is used as an estimate for the variance
+of the correlation structure. The expectation E[u(x)] is assumed to be 0.
 
 If delta terms are provided, then the nugget terms for each emulator are defined using these.
 If they are not provided but a list of variabilities for each output are (in \code{ev}), then

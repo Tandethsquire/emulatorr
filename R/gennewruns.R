@@ -106,7 +106,7 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
     message(cat("Only", length(new_points[,1]), "points generated."))
     return(setNames(data.frame(new_points), names(ranges)))
   }
-  else message(cat(length(new_points[,1]), "non-implausible points generated. Applying V-optimality..."))
+  #else message(cat(length(new_points[,1]), "non-implausible points generated. Applying V-optimality..."))
   for (i in 1:n_runs)
   {
     new_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
@@ -161,7 +161,7 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
   df <- df[nth_implausible(emulators, df, z) <= cutoff,]
   if (length(df[,1]) < n_points)
   {
-    message(cat("Only", length(df[,1]), "points generated."))
+    message(cat("Only", length(df[,1]), "points generated from LHS with rejection."))
     return(df)
   }
   cdist <- 0

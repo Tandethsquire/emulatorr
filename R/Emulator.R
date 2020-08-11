@@ -134,11 +134,13 @@ Emulator <- R6::R6Class(
       }
       return(beta_part + u_part + bupart)
     },
-    implausibility = function(x, z) {
+    implausibility = function(x, z, cutoff = NULL) {
       if (is.numeric(z)) output <- list(val = z, sigma = 0)
       else output <- z
       imp_var <- self$get_cov(x) + output$sigma^2
-      return(sqrt((output$val - self$get_exp(x))^2/imp_var))
+      imp <- sqrt((output$val - self$get_exp(x))^2/imp_var)
+      if (is.null(cutoff)) return(imp)
+      else return(imp <= cutoff)
     },
     adjust = function(data, out_name) {
       this_data_in <- eval_funcs(scale_input, data[,names(self$ranges)], self$ranges)

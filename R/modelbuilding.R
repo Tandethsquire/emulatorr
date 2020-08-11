@@ -17,7 +17,10 @@
 #' @return The fitted model
 #' @export
 get_linear_model <- function(data, ranges, output_name, add = FALSE) {
-  if (!add & (length(ranges) + 1 > length(data[,1]))) stop("Number of linear terms is greater than the degrees of freedom in the data. Consider using add = TRUE.")
+  if (!add & (length(ranges) + 1 > length(data[,1]))) {
+    warning("Number of linear terms is greater than the degrees of freedom in the data. Changing to add = TRUE.")
+    add <- TRUE
+  }
   input_params <- names(ranges)
   scaled_input_data <- eval_funcs(scale_input, data[,names(ranges)], ranges)
   full_scaled <- setNames(data.frame(cbind(scaled_input_data, data[,output_name])), c(names(ranges), output_name))
@@ -49,6 +52,7 @@ get_linear_model <- function(data, ranges, output_name, add = FALSE) {
 #' the value of \code{add}; in the event where \code{add = FALSE} and there are not
 #' enough degrees of freedom, a warning will be given.
 #'
+#' @import purrr
 #' @importFrom stats lm step setNames AIC update as.formula
 #'
 #' @param data A \code{data.frame} containing the input and output values
@@ -60,17 +64,23 @@ get_linear_model <- function(data, ranges, output_name, add = FALSE) {
 #' @return The fitted model
 #' @export
 get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_model = NULL) {
-  if (!add & (choose(length(ranges)+2, length(ranges)) > length(data[,1]))) stop("Number of regression terms is greater than the degrees of freedom in the data. Use add = TRUE.")
+  .x <- NULL
+  if (!add & (choose(length(ranges)+2, length(ranges)) > length(data[,1]))) {
+    warning("Number of regression terms is greater than the degrees of freedom in the data. Changing to add = TRUE.")
+    add <- TRUE
+  }
   input_params <- names(ranges)
   scaled_input_data <- eval_funcs(scale_input, data[,names(ranges)], ranges)
   full_scaled <- setNames(data.frame(cbind(scaled_input_data, data[,output_name])), c(names(ranges), output_name))
   if (!add) {
-    model <- step(lm(data = full_scaled, as.formula(paste(c(output_name, "~(", paste(names(ranges), collapse = "+"), ")^2"), collapse=""))), trace = 0)
+    quad_terms <- paste(purrr::map_chr(names(ranges), ~paste("I(",.x,"^2)", sep = "")), collapse = "+", sep = "")
+    model <- step(lm(data = full_scaled, as.formula(paste(c(output_name, "~(", paste(names(ranges), collapse = "+"), ")^2+", quad_terms), collapse=""))), trace = 0)
   }
   else {
     ifelse (is.null(linear_model), model <- get_linear_model(data, ranges, output_name, add = add), model <- linear_model)
     aic <- AIC(model)
-    poss_q <- apply(expand.grid(names(ranges), names(ranges)), 1, paste, collapse = ":")
+    quad_terms <- purrr::map_chr(names(ranges), paste("I(",.x,"^2)", sep =  ""))
+    poss_q <- c(apply(expand.grid(names(ranges), names(ranges)), 1, paste, collapse = ":"), quad_terms)
     for (i in 1:length(poss_q)) {
       temp_model <- update(model, as.formula(paste(". ~ . + ", poss_q[i], sep = "")))
       temp_aic <- AIC(temp_model)
@@ -81,6 +91,36 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
     }
   }
   return(model)
+}
+
+# Performs maximum likelihood estimation of the hyperparameters sigma and theta.
+# At present, only does single theta estimates (i.e. the same correlation length
+# is applied in all parameter directions)
+get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta = 0.1) {
+  best_L <- -Inf
+  best_sigma <- best_theta <- NULL
+  hs <- eval_funcs(h, inputs)
+  corr_func <- function(x, xp, theta, delta) {
+    (1-delta) * exp(-sum((x-xp)^2/theta^2)) + ifelse(all(x == xp), delta, 0)
+  }
+  corr_matrix <- function(points, theta, delta) {
+    apply(points, 1, function(x) apply(points, 1, function(y) corr_func(x,y,theta,delta)))
+  }
+  t_list <- seq(theta_range[1], theta_range[2], length.out = n_ints)
+  for (i in t_list) {
+    cmat <- corr_matrix(inputs, i, delta)
+    cm <- chol2inv(chol(cmat))
+    #beta_est <- chol2inv(chol(hs %*% cm %*% t(hs))) %*% hs %*% cm %*% outputs
+    beta_est <- rep(0, nrow(hs))
+    var_est <- t(outputs - t(hs) %*% beta_est) %*% cm %*% (outputs - t(hs) %*% beta_est)
+    lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% t(hs))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
+    if (lik > best_L) {
+      best_L <- lik
+      best_sigma <- sqrt(var_est)
+      best_theta <- i
+    }
+  }
+  return(list(sigma = best_sigma/sqrt(length(outputs)), theta = best_theta))
 }
 
 #' Generate Prior Emulators from Data
@@ -106,10 +146,9 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 #' The correlation function c(x,x') is taken to be \code{\link{exp_sq}}; the correlation length is
 #' chosen using the Durham heuristic: this states that the correlation length should lie within
 #' [1/(n+1), 2/(n+1)] where n is the degree of the fitted surface (and the range of the parameter
-#' is [-1,1]). A value in this range is sampled uniformly: it may be useful to generate emulators
-#' allowing this randomness and use diagnostics to decide on a fixed value. The expectation E[u(x)]
-#' is assumed to be 0, and the variance \code{sigma^2} is taken from the residual squared error
-#' from the model used to fit the basis functions and betas.
+#' is [-1,1]). Maximum likelihod estimation is then applied to this range to find an acceptable
+#' correlation length, and the corresponding standard error is used as an estimate for the variance
+#' of the correlation structure. The expectation E[u(x)] is assumed to be 0.
 #'
 #' If delta terms are provided, then the nugget terms for each emulator are defined using these.
 #' If they are not provided but a list of variabilities for each output are (in \code{ev}), then
@@ -162,66 +201,64 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 emulator_from_data <- function(input_data, output_names, ranges,
                                input_names = names(ranges), beta, u,
                                c_lengths, funcs, bucov, deltas, ev,
-                               quadratic=F, beta.var = F) {
+                               quadratic = FALSE, beta.var = FALSE) {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
     ranges <- purrr::map(input_names, ~c(-1,1))
   }
   data <- cbind(eval_funcs(scale_input, input_data[,names(ranges)], ranges), input_data[,output_names])
-  if (missing(beta) || missing(u) || missing(funcs)) {
+  if (missing(beta) || missing(funcs)) {
     if (quadratic) {
-      does_add <- choose(length(input_names)+2, length(input_names))>length(input_data[,1])
-      models <- purrr::map(output_names, ~get_quadratic_model(input_data, ranges, .x, add = does_add))
+      does_add <- (choose(length(input_names)+2, length(input_names)) > nrow(input_data))
+      models <- purrr::map(output_names, ~get_quadratic_model(input_data, ranges, ., add = does_add))
     }
-    else
-    {
-      does_add <- length(input_names)+1>length(input_data[,1])
-      models <- purrr::map(output_names, ~get_linear_model(input_data, ranges, .x, add = does_add))
+    else {
+      does_add <- (length(input_names)+1 > nrow(input_data))
+      models <- purrr::map(output_names, ~get_linear_model(input_data, ranges, ., add = does_add))
     }
-  }
-  if (missing(beta)) {
-    all_funcs <- c(function(x) 1, purrr::map(1:length(input_names), ~function(x) x[[.x]]))
+    all_funcs <- c(function(x) 1, purrr::map(seq_along(input_names), ~function(x) x[[.]]))
     all_coeffs <- c("(Intercept)", input_names)
     if (quadratic) {
       all_funcs <- c(all_funcs, apply(expand.grid(1:length(input_names), 1:length(input_names)), 1, function(y) function(x) x[[y[[1]]]]*x[[y[[2]]]]))
-      all_coeffs <- c(all_coeffs, apply(expand.grid(input_names, input_names), 1, paste, collapse=":"))
+      all_coeffs <- c(all_coeffs, apply(expand.grid(input_names, input_names), 1, paste, collapse = ":"))
+      all_coeffs <- sub("(.*):(\\1)", "I(\\1^2)", all_coeffs)
     }
-    model_beta_mus <- purrr::map(models, ~c(.x$coefficients, use.names = F))
-    model_basis_funcs <- purrr::map(models, ~all_funcs[all_coeffs %in% variable.names(.x)])
+    model_beta_mus <- purrr::map(models, ~c(.$coefficients, use.names = FALSE))
+    model_basis_funcs <- purrr::map(models, ~all_funcs[all_coeffs %in% variable.names(.)])
     if (beta.var) model_beta_sigmas <- purrr::map(models, ~vcov(.))
-    else model_beta_sigmas <- purrr::map(model_beta_mus, ~diag(0, nrow = length(.x)))
+    else model_beta_sigmas <- purrr::map(model_beta_mus, ~diag(0, nrow = length(.)))
   }
   else {
-    model_beta_mus <- purrr::map(beta, ~.x$mu)
-    model_beta_sigmas <- purrr::map(beta, ~.x$sigma)
+    if (missing(beta) || is.null(beta[[1]]$mu) || is.null(beta[[1]]$sigma)) stop("Basis functions provided but no regression coefficients.")
+    if (missing(funcs)) stop("Regression coefficients provided but no basis functions.")
+    model_beta_mus <- purrr::map(beta, ~.$mu)
+    model_beta_sigmas <- purrr::map(beta, ~.$sigma)
     model_basis_funcs <- purrr::map(beta, ~funcs)
   }
+  if (missing(deltas)) model_deltas <- rep(0.1, length(output_names))
+  else model_deltas <- deltas
   if (missing(u)) {
-    model_u_sigmas <- c(sapply(models, function(x) summary(x)$sigma))
+    residuals <- purrr::map(seq_along(output_names), ~data[,output_names[[.]]] - apply(sweep(t(eval_funcs(model_basis_funcs[[.]], data[,names(ranges)])), 2, model_beta_mus[[.]], "*"), 1, sum))
+    ifelse(quadratic, theta_range <- c(1/6, 5/6), theta_range <- c(1/4, 1))
+    specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
+    model_u_sigmas <- map(specs, ~as.numeric(.$sigma))
     model_u_mus <- purrr::map(output_names, ~function(x) 0)
-    if(missing(c_lengths)) {
-      ifelse(quadratic, model_u_thetas <- runif(length(output_names), 1/3, 2/3), model_u_thetas <- runif(length(output_names), 1/2, 1))
-    }
-    else model_u_thetas <- c_lengths
-    model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, model_u_thetas[[.x]]))
+    if (missing(c_lengths)) c_lengths <- purrr::map(specs, ~as.numeric(.$theta))
+    model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, c_lengths[[.]]))
   }
   else {
-    model_u_sigmas <- purrr::map(u, ~.x$sigma)
-    model_u_mus <- purrr::map(u, ~.x$mu)
-    model_u_corr_funcs <- purrr::map(u, ~function(x,xp) .x$corr(x, xp, .x$theta))
+    model_u_sigmas <- purrr::map(u, ~.$sigma)
+    model_u_mus <- purrr::map(u, ~.$mu)
+    model_u_corr_funcs <- purrr::map(u, ~function(x,xp) .$corr(x,xp,.x$theta))
   }
-  model_us <- purrr::map(seq_along(model_u_sigmas), ~list(mu = model_u_mus[[.x]], sigma = model_u_sigmas[[.x]], corr = model_u_corr_funcs[[.x]]))
-  model_betas <- purrr::map(seq_along(model_beta_mus), ~list(mu = model_beta_mus[[.x]], sigma = model_beta_sigmas[[.x]]))
-  if (missing(deltas)) model_deltas <- rep(0, length(output_names))
-  else model_deltas <- deltas
-  if (missing(bucov))
-    out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], ranges = ranges, delta = model_deltas[[.x]], model = models[[.x]]))
-  else
-    out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.x]], beta = model_betas[[.x]], u = model_us[[.x]], bucov = bucov, ranges = ranges, delta = model_deltas[[.x]], model = models[[.x]]))
+  model_us <- purrr::map(seq_along(model_u_sigmas), ~list(mu = model_u_mus[[.]], sigma = model_u_sigmas[[.]], corr = model_u_corr_funcs[[.]]))
+  model_betas <- purrr::map(seq_along(model_beta_mus), ~list(mu = model_beta_mus[[.]], sigma = model_beta_sigmas[[.]]))
+  if (missing(bucov)) bucov <- NULL
+  out_ems <- purrr::map(seq_along(model_betas), ~Emulator$new(basis_f = model_basis_funcs[[.]], beta = model_betas[[.]], u = model_us[[.]], ranges = ranges, delta = model_deltas[[.]], model = models[[.]]))
   if (missing(deltas) && !missing(ev)) {
-    new_delta <- ev/purrr::map_dbl(out_ems, ~.$u_sigma)
-    new_delta <- purrr::map_dbl(new_delta, ~min(1/3, .))
-    return(emulator_from_data(input_data, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, new_delta, quadratic, beta.var))
+    new_deltas <- ev/purrr::map_dbl(out_ems, ~.$u_sigma)
+    new_deltas <- purrr::map_dbl(new_deltas, ~min(1/3, .))
+    return(emulator_from_data(input_data, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, new_deltas, quadratic = quadratic, beta.var = beta.var))
   }
   return(setNames(out_ems, output_names))
 }
