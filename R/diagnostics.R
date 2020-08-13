@@ -383,6 +383,7 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
 #' @param validation_points The validation set to be plotted
 #' @param z The target values for each emulated output
 #' @param orig_ranges The original ranges for the input parameters (if desired)
+#' @param cb Should a colourblind-friendly palette be used for plots? Default: FALSE
 #' @param ... Any additional parameters to be passed to internal functions.
 #'
 #' @return A data.frame containing the validation points, with goodness-of-fit and implausibility.
@@ -399,7 +400,7 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
 #'  list(val = 689, sigma = 14.32)
 #' )
 #' validation_pairs(ems, GillespieValidation, targets)
-validation_pairs <- function(ems, validation_points, z, orig_ranges, ...) {
+validation_pairs <- function(ems, validation_points, z, orig_ranges, cb = FALSE, ...) {
   if(missing(orig_ranges))
     orig_ranges <- ems[[1]]$ranges
   em_vals <- data.frame(purrr::map(ems, ~.$get_exp(validation_points[,names(ems[[1]]$ranges)])))
@@ -415,12 +416,13 @@ validation_pairs <- function(ems, validation_points, z, orig_ranges, ...) {
       xlim(orig_ranges[[rlang::quo_get_expr(mapping$x)]]) +
       ylim(orig_ranges[[rlang::quo_get_expr(mapping$y)]])
   }
+  ifelse(cb, cols <- colourblindcont, cols <- redgreencont)
   g <- ggpairs(results, columns = 1:length(orig_ranges), aes(colour = results[,'bad']), legend = c(1,2),
                title = "Emulator Diagnostics (lower) and Emulator Implausibility (upper)",
                lower = list(continuous = wrap(limfun), mapping = aes(colour = results[,'bad'])),
                upper = list(continuous = wrap(limfun), mapping = aes(colour = results[,'imps'])),
                diag = 'blank', progress = FALSE) +
-    scale_colour_gradient2(low = '#00FF00', mid = '#DDFF00', high = '#FF0000', midpoint = 3, breaks = colourbrks, name = "Scale", labels = colournames) +
+    scale_colour_gradient2(low = cols$low, mid = cols$mid, high = cols$high, midpoint = 3, breaks = colourbrks, name = "Scale", labels = colournames) +
     theme(legend.position = 'right') +
     theme_minimal()
   print(g)

@@ -1,3 +1,11 @@
+# Implausibility colour palettes
+redgreen <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
+              '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
+colourblind <- c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
+                 '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
+redgreencont <- list(low = '#00FF00', mid = '#DDFF00', high = '#FF0000')
+colourblindcont <- list(low = '#1aff1a', mid = '#ac9011', high = '#48118e')
+
 # Scales inputs: important since the emulators should take inputs purely in [-1,1]
 scale_input <- function(x, r, forward = TRUE) {
   centers <- purrr::map(r, ~(.x[2]+.x[1])/2)

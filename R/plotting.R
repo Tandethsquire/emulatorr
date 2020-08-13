@@ -93,12 +93,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
         scale_fill_viridis(discrete = TRUE, option = cols, name = nm, labels = bin_vals)
     }
     else if (var_name == "imp") {
-      if (cb)
-        cols <- c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
-                  '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
-      else
-        cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
+      ifelse(cb, cols <- colourblind, cols <- redgreen)
       g <- g +
         geom_contour_filled(aes(z = data_grid[,var_name]), breaks = impbrks[included], colour = 'black') +
         scale_fill_manual(values = cols[included], labels = impnames[included], guide = guide_legend(reverse = TRUE)) +
@@ -120,12 +115,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
       data_grid <- cbind(data_grid, nth_implausible(em, grid, targets, ...)) %>% setNames(c(names(em[[1]]$ranges), "I"))
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
       impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
-      if (cb)
-        cols <- c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
-                  '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
-      else
-        cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
+      ifelse(cb, cols <- colourblind, cols <- redgreen)
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid$I < .)), TRUE)
       g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]])) +
         geom_contour_filled(aes(z = I), breaks = impbrks[included], colour = 'black') +
@@ -165,12 +155,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
     else {
       impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 1000)
       impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
-      if (cb)
-        cols <-  c('#1aff1a', '#2af219', '#3ae618', '#4ada17', '#5acd16', '#6bc115', '#7bb514', '#8ba813', '#9b9c12', '#ac9011',
-                   '#a2831d', '#98762a', '#8e6936', '#845d43', '#7a504f', '#70435c', '#663768', '#5c2a75', '#521d81', '#48118e')
-      else
-        cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-                  '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000', '#FF0000')
+      ifelse(cb, cols <- colourblind, cols <- redgreen)
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid[,'value'] < .)), TRUE)
       g <- g +
         geom_contour_filled(aes(z = data_grid[,'value']), breaks = impbrks[included], colour = 'black') +
@@ -241,116 +226,113 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
   return(g)
 }
 
-#' Implausibility Plots
+#' Create a Plot Lattice
 #'
-#' Generates implausibility plots: either optical depth, or minimum implausibility.
-#' Simply a plot wrapper to make later things easier for lattice plots, etc.
-#' However, it does have value in and of itself.
+#' Plots a number of emulator plots, all projections of the full-dimensional space.
 #'
+#' The plots to be included are:
+#'
+#' One dimensional optical depth plots (the proportion of points that are non-implausible)
+#'
+#' Two dimensional optical depth plots
+#'
+#' Two dimensional minimum implausibility plots
+#'
+#' The 1d optical depth plots are situated on the diagonal, the 2d optical depth plots in the
+#' upper triangular elements, and the minimum implausibility plots in the lower triangular
+#' elements. To evaluate the quantities, a regular grid with \code{ppd} points per dimension
+#' is created, and maximum implausibility is calculated over this grid.
+#'
+#' @importFrom cowplot plot_grid get_legend
 #' @import ggplot2
-#' @importFrom stats loess
 #'
-#' @param df A data.frame containing the inputs and implausibilities
-#' @param names A list of names for the inputs.
-#' @param nvars The number of variables in the plotting region: either 1 or 2.
-#' @param min Should minimum implausibility be plotted? Default: FALSE
-#' @param ticks Are axis ticks required? Default: FALSE
-#'
-#' @return A ggplot object
-#' @export
-#'
-#' @examples
-#'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
-#'  implaus <- GillespieImplausibility[,c(names(ranges), "I")]
-#'  targets <- list(
-#'   list(val = 281, sigma = 10.43),
-#'   list(val = 30, sigma = 11.16),
-#'   list(val = 689, sigma = 14.32)
-#'  )
-#'  op_depth <- optical_depth(targets, ranges, 20, plot_vars = c('aSI','aIR'), imps = implaus)
-#'  plot_implausible(op_depth, c('aSI','aIR'), 2, ticks = TRUE)
-#'  min_imp <- min_implausibility(targets, ranges, points_per_dim = 20, imps = implaus)
-#'  plot_implausible(min_imp, c('aSI','aIR'), 2, min = TRUE, ticks = TRUE)
-plot_implausible <- function(df, names, nvars, min = FALSE, ticks = FALSE) {
-  Proportion <- Minimum <- NULL
-  if (min)
-  {
-    impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
-    impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
-    cols <- c('#00FF00', '#18FF00', '#31FF00', '#49FF00', '#62FF00', '#7AFF00', '#93FF00', '#ABFF00', '#C4FF00', '#DDFF00',
-              '#E0E200', '#E4C600', '#E8AA00', '#EC8D00', '#EF7100', '#F35500', '#F73800', '#FB1C00', '#FF0000')
-    included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(df$Minimum < .)), TRUE)
-    g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
-      geom_raster(aes(fill = Minimum), interpolate = TRUE) +
-      scale_fill_gradient2(low = '#00FF00', mid = '#AAFF00', high = '#FF0000', midpoint = 2, breaks = impbrks, labels = NULL) +
-      labs(x = names[1], y = names[2])
-  }
-  else if (nvars == 1)
-  {
-    g <- ggplot(data = df, aes(x = df[,names], y = Proportion, group = 1)) +
-      ggplot2::geom_smooth(formula = y~x, method = stats::loess, se = FALSE, color = 'black') +
-      ggplot2::coord_cartesian(ylim=c(0,1)) +
-      labs(x = names, y = "Optical Depth")
-  }
-  else if (nvars == 2)
-  {
-    g <- ggplot(data = df, aes(x = df[,names[1]], y = df[,names[2]])) +
-      geom_raster(aes(fill = Proportion), interpolate = TRUE) +
-      labs(x = names[1], y = names[2])
-  }
-  g <- g + theme_minimal()
-  if (ticks)
-    return(g + theme(axis.text.x = element_text(angle = 90)))
-  else
-    return(g + theme(legend.position = "none", axis.ticks = element_blank(), axis.text = element_blank()))
-}
-
-#' Implausibility Plot Lattice
-#'
-#' Creates a lattice of plots, consisting of optical depths (both univariate and
-#' two-variable projections), and minimum implausibility.
-#' It is advisable to pass no more than 6 input parameter names to this function,
-#' as the graphs will be too small for meaningful analysis if more are provided.
-#'
-#' @importFrom purrr map
-#' @importFrom utils combn
-#' @importFrom cowplot ggdraw draw_plot
-#'
-#' @param implausibilities A list of implausibilities for input points
-#' @param targets A list of observations, given in the usual form
-#' @param ranges The ranges of each of the input parameters.
-#' @param np The number of bins in each part of the plot grids
-#' @param ... Any additional inputs (to be passed to \code{\link{optical_depth}})
+#' @param ems The list of emulators
+#' @param targets The corresponding list of targets for the emulators
+#' @param ppd The number of points to sample per input dimension. The granularity should be
+#' carefully considered for large parameter spaces. Default: 40
+#' @param cb Should a colourblind-friendly palette be used for implausibility? Default: FALSE
 #'
 #' @return A ggplot object
+#'
 #' @export
 #'
-#' @examples
-#'  imp_data <- GillespieImplausibility
-#'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
-#'  targets <- list(
-#'   list(val = 281, sigma = 10.43),
-#'   list(val = 30, sigma = 11.16),
-#'   list(val = 689, sigma = 14.32)
-#'  )
-#'  plot_lattice(imp_data[,c(names(ranges), "I")], targets, ranges, np = 20)
-plot_lattice <- function(implausibilities, targets, ranges, np = 50, ...) {
-  nvars <- length(names(ranges))
-  name_set <- t(combn(names(ranges), 2))
-  coord_set <- t(combn(seq_along(names(ranges)), 2))
-  d_od <- apply(name_set, 1, function(x) optical_depth(targets, ranges, np, plot_vars = x, imps = implausibilities, ...))
-  s_od <- map(names(ranges), ~optical_depth(targets, ranges, np, plot_vars = .x, imps = implausibilities, ...))
-  d_min <- apply(name_set, 1, function(x) min_implausibility(targets, ranges, np, plot_vars = x, imps = implausibilities, ...))
-  plots_s <- map(seq_along(names(ranges)), ~list(plt = plot_implausible(s_od[[.x]], names(ranges)[.x], 1), x = .x-1, y = .x-1))
-  plots_d <- map(seq_along(name_set[,1]), ~list(plt = plot_implausible(d_od[[.x]], name_set[.x,], 2), x = coord_set[.x,1]-1, y = coord_set[.x,2]-1))
-  plots_m <- map(seq_along(name_set[,1]), ~list(plt = plot_implausible(d_min[[.x]], name_set[.x,], 2, min = TRUE), x = coord_set[.x,2]-1, y = coord_set[.x,1]-1))
-  tot_plots <- c(plots_s, plots_d, plots_m)
-  plot_out <- ggdraw()
-  for (i in 1:length(tot_plots)) {
-    to_plot <- tot_plots[[i]]
-    plot_out <- plot_out + draw_plot(to_plot$plt, x = to_plot$x/nvars, y = to_plot$y/nvars, width = 1/nvars, height = 1/nvars)
-  }
-  return(plot_out)
+plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
+  ranges <- ems[[1]]$ranges
+  dim_unif <- purrr::map(ranges, ~seq(.[[1]], .[[2]], length.out = ppd))
+  grd <- expand.grid(dim_unif)
+  imps <- nth_implausible(ems, grd, targets)
+  df <- setNames(data.frame(cbind(grd, imps)), c(names(ranges), "I"))
+  bins <- ppd-1
+  df_filtered <- subset(df, I <= 3)
+  onedimops <- data.frame(do.call('cbind', purrr::map(seq_along(ranges), function(x) {
+    binpoints <- seq(ranges[[x]][1], ranges[[x]][2], length.out = bins)
+    intervals <- findInterval(df[,names(ranges)[[x]]], binpoints)
+    tot_in_bin <- c(tabulate(intervals, nbins = bins))
+    tot_NROY <- c(tabulate(findInterval(df_filtered[,names(ranges)[[x]]], binpoints), nbins = bins))
+    props <- tot_NROY/tot_in_bin
+    return(props[intervals])
+  }))) %>% setNames(names(ranges))
+  variable_combs <- unlist(purrr::map(outer(names(ranges), names(ranges), paste)[upper.tri(outer(names(ranges), names(ranges), paste))],
+                                      ~strsplit(., " ")), recursive = FALSE)
+  twodimops <- purrr::map(variable_combs, function(x) {
+    binpoints <- purrr::map(seq_along(x), ~seq(ranges[[x[.]]][1], ranges[[x[.]]][2], length.out = bins))
+    intervals <- data.frame(do.call('cbind', purrr::map(seq_along(x), ~findInterval(df[,x[.]], binpoints[[.]])))) %>% setNames(x)
+    tot_in_bin <- table(intervals)
+    tot_NROY <- table(data.frame(do.call('cbind', purrr::map(seq_along(x), ~findInterval(df_filtered[,x[.]], binpoints[[.]])))) %>% setNames(x))
+    props <- tot_NROY/tot_in_bin
+    return(apply(intervals, 1, function(x) props[x[1], x[2]]))
+  })
+  twodimmins <- purrr::map(variable_combs, function(x) {
+    binpoints <- purrr::map(seq_along(x), ~seq(ranges[[x[.]]][1], ranges[[x[.]]][2], length.out = bins))
+    intervals <- data.frame(do.call('cbind', purrr::map(seq_along(x), ~findInterval(df[,x[.]], binpoints[[.]])))) %>% setNames(x)
+    minimp <- matrix(rep(0, bins^2), nrow = bins)
+    for (i in 1:bins) {
+      for (j in 1:bins) {
+        minimp[i, j] <- min(df[intervals[,1] == i & intervals[,2] == j, 'I'])
+      }
+    }
+    return(apply(intervals, 1, function(x) minimp[x[1], x[2]]))
+  })
+  full_df <- data.frame(cbind(onedimops, twodimops, twodimmins)) %>% setNames(c(paste0(names(ranges), "op"),
+                                                                                paste0(purrr::map_chr(variable_combs, ~paste(., collapse="")), "op"),
+                                                                                paste0(purrr::map_chr(variable_combs, ~paste(., collapse="")), "min")))
+  full_df <- data.frame(cbind(grd, full_df))
+  name_mat <- matrix(rep("", length(ranges)^2), nrow = length(ranges))
+  comb_names <- purrr::map(variable_combs, paste, collapse = "")
+  name_mat[upper.tri(name_mat)] <- paste0(comb_names, "min")
+  name_mat[lower.tri(name_mat)] <- paste0(comb_names, "op")
+  diag(name_mat) <- paste0(names(ranges), 'op')
+  ifelse(cb, cols <- colourblind, cols <- redgreen)
+  impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
+  impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15)
+  plot_list <- unlist(purrr::map(seq_along(1:nrow(name_mat)), function(x) {
+    purrr::map(seq_along(1:ncol(name_mat)), function(y) {
+      if (x == y) {
+        g <- ggplot(data = full_df, aes(x = full_df[,names(ranges)[x]])) +
+          geom_smooth(aes(y = full_df[,name_mat[x,x]]), colour = 'black')
+      }
+      else {
+        g <- ggplot(data = full_df, aes(x = full_df[,names(ranges)[y]], y = full_df[,names(ranges)[x]]))
+        if (x < y) {
+          g <- g +
+            geom_raster(aes(fill = full_df[,name_mat[y,x]]), interpolate = TRUE) +
+            scale_fill_gradient(breaks = seq(0,1,by=0.1), name = "Op. Depth")
+        }
+        else {
+          g <- g +
+            geom_contour_filled(aes(z = full_df[,name_mat[y,x]]), breaks = impbrks, colour = 'black') +
+            scale_fill_manual(values = cols, labels = impnames, name = "Min. I", guide = guide_legend(reverse = TRUE))
+        }
+      }
+      xlab <- ylab <- NULL
+      if (x == nrow(name_mat)) xlab <- names(ranges)[y]
+      if (y == 1) ylab <- names(ranges)[x]
+      return(g + labs(x = xlab, y = ylab) + theme_minimal())
+    })
+  }), recursive = FALSE)
+  legend_list <- list(get_legend(plot_list[[length(ranges)]]), rep(NULL, length(ranges)-2), get_legend(plot_list[[length(ranges)+1]]))
+  for (i in 1:length(plot_list)) plot_list[[i]] <- plot_list[[i]] + theme(legend.position = 'none')
+  return(suppressMessages(plot_grid(plot_grid(plotlist = plot_list), plot_grid(plotlist = legend_list, ncol = 1), rel_widths = c(1,0.1))))
 }
 
 #' Plot Points of Waves

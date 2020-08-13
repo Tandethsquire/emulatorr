@@ -2,37 +2,37 @@
 % Please edit documentation in R/plotting.R
 \name{plot_lattice}
 \alias{plot_lattice}
-\title{Implausibility Plot Lattice}
+\title{Create a Plot Lattice}
 \usage{
-plot_lattice(implausibilities, targets, ranges, np = 50, ...)
+plot_lattice(ems, targets, ppd = 40, cb = FALSE)
 }
 \arguments{
-\item{implausibilities}{A list of implausibilities for input points}
+\item{ems}{The list of emulators}
 
-\item{targets}{A list of observations, given in the usual form}
+\item{targets}{The corresponding list of targets for the emulators}
 
-\item{ranges}{The ranges of each of the input parameters.}
+\item{ppd}{The number of points to sample per input dimension. The granularity should be
+carefully considered for large parameter spaces. Default: 40}
 
-\item{np}{The number of bins in each part of the plot grids}
-
-\item{...}{Any additional inputs (to be passed to \code{\link{optical_depth}})}
+\item{cb}{Should a colourblind-friendly palette be used for implausibility? Default: FALSE}
 }
 \value{
 A ggplot object
 }
 \description{
-Creates a lattice of plots, consisting of optical depths (both univariate and
-two-variable projections), and minimum implausibility.
-It is advisable to pass no more than 6 input parameter names to this function,
-as the graphs will be too small for meaningful analysis if more are provided.
+Plots a number of emulator plots, all projections of the full-dimensional space.
 }
-\examples{
- imp_data <- GillespieImplausibility
- ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
- targets <- list(
-  list(val = 281, sigma = 10.43),
-  list(val = 30, sigma = 11.16),
-  list(val = 689, sigma = 14.32)
- )
- plot_lattice(imp_data[,c(names(ranges), "I")], targets, ranges, np = 20)
+\details{
+The plots to be included are:
+
+One dimensional optical depth plots (the proportion of points that are non-implausible)
+
+Two dimensional optical depth plots
+
+Two dimensional minimum implausibility plots
+
+The 1d optical depth plots are situated on the diagonal, the 2d optical depth plots in the
+upper triangular elements, and the minimum implausibility plots in the lower triangular
+elements. To evaluate the quantities, a regular grid with \code{ppd} points per dimension
+is created, and maximum implausibility is calculated over this grid.
 }
