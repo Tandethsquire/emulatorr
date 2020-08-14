@@ -1,3 +1,16 @@
+# Helper Functions for uniform sphere sampling
+runifs <- function(n, d, c = rep(0, d), r = 1) {
+  init_points <- matrix(rnorm(n*d, 0, 1), nrow = n, byrow = T)
+  exps <- rexp(n, 0.5)
+  denoms <- (exps + apply(init_points, 1, function(x) sum(x^2)))^(0.5)
+  swept <- sweep(init_points, 1, denoms, "/")
+  return(t(apply(swept, 1, function(x) x*r + c)))
+}
+punifs <- function(x, c = rep(0, length(x)), r = 1) {
+  return(ifelse(sum((x-c)^2) <= r^2, 1, 0))
+}
+
+
 #' Generate Simulator Runs
 #'
 #' A wrapper for a variety of sampling methods.
@@ -83,7 +96,7 @@
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, ...) {
   if (missing(plausible_set) || method == 'lhs')
-    points <- lhs_generation(emulators, ranges, n_points, z, cutoff, ...)
+    points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
   else points <- plausible_set
   if (method == 'lhs') return(points)
   if (method == 'importance')
@@ -178,8 +191,7 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
 }
 
 # Importance Sampling from initial points
-importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, dist = "normal", debug = FALSE, plausible_set) {
-  #J <- function(x) nth_implausible(ems, x, z) <= cutoff
+importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, dist = 'sphere', plausible_set, burn_in = FALSE) {
   J <- function(x) {
     for (i in 1:length(ems)) {
       if (!ems[[i]]$implausibility(x, z[[i]], cutoff)) return(FALSE)
@@ -190,34 +202,59 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
   if (is.null(sd)) {
-    lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
-    sd <- diag((lengths/6)^2, length(lengths))
-  }
-  pts_added <- 0
-  out_arr <- array(0, dim = c(n_points, length(plausible_set)))
-  #checking_points <- plausible_set[apply(plausible_set, 1, J),]
-  checking_points <- plausible_set
-  n_initial <- length(checking_points[,1])
-  weights <- apply(checking_points, 1, function(x) 1/n_initial * sum(apply(checking_points, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
-  min_w <- min(weights)
-  while (pts_added < n_points) {
-    which_point <- sample(1:n_initial, 1)
-    new_point <- rmvnorm(1, mean = unlist(checking_points[which_point,], use.names = F), sigma = sd)
-    if (!J(c(new_point)) || !range_func(new_point, ranges)) next
-    if (!debug) {
-      point_weight <- 1/n_initial * sum(apply(checking_points, 1, function(x) dmvnorm(new_point, mean = x, sigma = sd)))
-      choosing_prob <- min_w/point_weight
-      pick <- runif(1)
-      if (pick <= choosing_prob) {
-        pts_added <- pts_added + 1
-        out_arr[pts_added,] <- new_point
+    if (dist == 'sphere') {
+      cat("Performing burn-in...\n")
+      bi <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/4
+      b_int <- bi/10
+      bv1 <- importance_sample(ems, ranges, max(500, floor(n_points/5)), z, sd = bi, plausible_set = plausible_set, burn_in = TRUE)
+      bv2 <- bv1
+      while (bv1 <= bv2) {
+        bi <- bi + b_int
+        bv1 <- bv2
+        bv2 <- importance_sample(ems, ranges, max(500, floor(n_points/5)), z, sd = bi, plausible_set = plausible_set, burn_in = TRUE)
       }
+      sd <- bi
+      cat("Optimal radius: ", sd, "; approximate volume: ", bv2, sep = "")
     }
     else {
+      lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
+      sd <- diag((lengths/6)^2, length(lengths))
+    }
+  }
+  pts_added <- 0
+  pts_tested <- 0
+  d <- length(plausible_set)
+  out_arr <- array(0, dim = c(n_points, length(plausible_set)))
+  checking_points <- plausible_set
+  n_initial <- length(checking_points[,1])
+  if (dist == 'normal') {
+    weights <- apply(checking_points, 1, function(x) 1/n_initial * sum(apply(checking_points, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
+    min_w <- min(weights)
+  }
+  while (pts_added < n_points) {
+    pts_tested <- pts_tested + 1
+    which_point <- sample(1:n_initial, 1)
+    if (dist == 'normal')
+      new_point <- rmvnorm(1, mean = unlist(checking_points[which_point,], use.names = F), sigma = sd)
+    else {
+      new_point <- runifs(1, d, unlist(checking_points[which_point,], use.names = F), r = sd)
+    }
+    if (!J(c(new_point)) || !range_func(new_point, ranges)) next
+    if (dist == 'normal') {
+      point_weight <- 1/n_initial * sum(apply(checking_points, 1, function(x) dmvnorm(new_point, mean = x, sigma = sd)))
+      choosing_prob <- min_w/point_weight
+    }
+    else {
+      point_weight <- sum(apply(checking_points, 1, function(x) punifs(new_point, x, r = sd)))
+      choosing_prob <- 1/point_weight
+    }
+    pick <- runif(1)
+    if (pick <= choosing_prob) {
       pts_added <- pts_added + 1
       out_arr[pts_added,] <- new_point
     }
   }
+  if (burn_in) return(nrow(checking_points) * n_points/pts_tested * pi^(d/2) * sd^d / gamma(d/2+1))
   return(setNames(data.frame(out_arr), names(plausible_set)))
 }
 

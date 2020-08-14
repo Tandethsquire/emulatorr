@@ -239,7 +239,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
   else model_deltas <- deltas
   if (missing(u) || is.null(u[[1]]$sigma) || is.null(u[[1]]$mu) || is.null(u[[1]]$corr)) {
     residuals <- purrr::map(seq_along(output_names), ~data[,output_names[[.]]] - apply(sweep(t(eval_funcs(model_basis_funcs[[.]], data[,names(ranges)])), 2, model_beta_mus[[.]], "*"), 1, sum))
-    ifelse(quadratic, theta_range <- c(1/6, 5/6), theta_range <- c(1/4, 1))
+    ifelse(quadratic, theta_range <- c(0.2, 1), theta_range <- c(0.2, 2))
     specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
     model_u_sigmas <- map(specs, ~as.numeric(.$sigma))
     model_u_mus <- purrr::map(output_names, ~function(x) 0)
