@@ -3,7 +3,7 @@
 #' A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
 #' than 2-dimensional, the mid-range values are chosen for any input beyond the first two.
 #' If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
-#' or \code{\link{full_wave}}), then the result is a kx2 grid of plots. If a single emulator is
+#' or \code{\link{full_wave}}), then the result is a kx3 grid of plots. If a single emulator is
 #' given, then a single plot is returned.
 #'
 #' Options for plotting variables are passed via the \code{var} parameter: current choices are
@@ -315,13 +315,13 @@ plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
         g <- ggplot(data = full_df, aes(x = full_df[,names(ranges)[y]], y = full_df[,names(ranges)[x]]))
         if (x < y) {
           g <- g +
-            geom_raster(aes(fill = full_df[,name_mat[y,x]]), interpolate = TRUE) +
-            scale_fill_gradient(breaks = seq(0,1,by=0.1), name = "Op. Depth")
+            geom_contour_filled(aes(z = full_df[,name_mat[x,y]]), breaks = impbrks, colour = 'black') +
+            scale_fill_manual(values = cols, labels = impnames, name = "Min. I", guide = guide_legend(reverse = TRUE))
         }
         else {
           g <- g +
-            geom_contour_filled(aes(z = full_df[,name_mat[y,x]]), breaks = impbrks, colour = 'black') +
-            scale_fill_manual(values = cols, labels = impnames, name = "Min. I", guide = guide_legend(reverse = TRUE))
+            geom_raster(aes(fill = full_df[,name_mat[x,y]]), interpolate = TRUE) +
+            scale_fill_gradient(breaks = seq(0,1,by=0.1), name = "Op. Depth")
         }
       }
       xlab <- ylab <- NULL

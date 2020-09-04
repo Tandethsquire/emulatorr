@@ -182,7 +182,7 @@ Emulator <- R6::R6Class(
       cat("Parameters and ranges: ", paste(names(self$ranges), paste0(self$ranges), sep = ": ", collapse= "; "), "\n")
       cat("Specifications: \n")
       if (is.null(self$model))
-        cat("\t Basis functions: ", paste(purrr::map(self$basis_f, ~function_to_names(.x, names(self$ranges))), collapse = "; "), "\n")
+        cat("\t Basis functions: ", paste0(names(self$o_em$model$coefficients), collapse="; "), "\n")
       else
         cat("\t Basis Functions: ", paste0(names(self$model$coefficients), collapse="; "), "\n")
       cat("\t Active variables: ", paste0(names(self$ranges)[self$active_vars], collapse="; "), "\n")

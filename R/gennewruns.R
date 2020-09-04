@@ -204,7 +204,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
   if (is.null(sd)) {
     if (dist == 'sphere') {
       cat("Performing burn-in...\n")
-      bi <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/4
+      bi <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/6
       b_int <- bi/10
       bv1 <- importance_sample(ems, ranges, max(500, floor(n_points/5)), z, sd = bi, plausible_set = plausible_set, burn_in = TRUE)
       bv2 <- bv1
@@ -214,7 +214,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
         bv2 <- importance_sample(ems, ranges, max(500, floor(n_points/5)), z, sd = bi, plausible_set = plausible_set, burn_in = TRUE)
       }
       sd <- bi
-      cat("Optimal radius: ", sd, "; approximate volume: ", bv2, sep = "")
+      cat("Optimal radius: ", sd, "; approximate volume: ", bv2, "\n", sep = "")
     }
     else {
       lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])

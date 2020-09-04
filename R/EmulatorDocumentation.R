@@ -73,12 +73,14 @@
 #'
 #'      \code{print()} Returns a summary of the emulator specifications.
 #'
-#'      \code{implausibility(x, z)} Returns the implausibility that input points \code{x} could
-#'      give rise to an output \code{z}. The output \code{z} can be supplied in two ways: either
-#'      as a list \code{z = list(val, sigma)} where \code{val} is the output and \code{sigma} the
-#'      corresponding uncertainty (e.g. observation error, model discrepancy); or as a single
-#'      numeric. In the latter case, the uncertainty is assumed to be identically 0 (tread with
-#'      caution in these circumstances!)
+#'      \code{implausibility(x, z, cutoff)} Returns the implausibility that input points \code{x}
+#'      could give rise to an output \code{z}. The output \code{z} can be supplied in two ways:
+#'      either as a list \code{z = list(val, sigma)} where \code{val} is the output and
+#'      \code{sigma} the corresponding uncertainty (e.g. observation error, model discrepancy);
+#'      or as a single numeric. In the latter case, the uncertainty is assumed to be identically
+#'      0 (tread with caution in these circumstances!). As an optional parameter, one can specify
+#'      an implausibility cutoff: if provided, the function will return a boolean rather than a
+#'      numeric value, dependent on if the implausibility is less than or equal to the cutoff.
 #'
 #' @section Object Methods:
 #'
@@ -88,6 +90,12 @@
 #'      adjusted expectation and variance of beta as the primitive specifications, and supplies
 #'      the data for the new emulator to compute the adjusted expectation and variance of u(x),
 #'      and the adjusted Cov[beta, u(x)].
+#'
+#'      \code{set_sigma(sigma)} Adjusts the global emulator variance. If the emulator is not
+#'      trained to data, this simply modifies the value of \code{sigma}; if the emulator is
+#'      trained to data, then the function takes a clone of the untrained emulator, modifies
+#'      the \code{sigma} therein, and retrains using the same data but with the new prior
+#'      specification.
 #'
 #' @export
 #'
