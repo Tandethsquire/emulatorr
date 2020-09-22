@@ -13,6 +13,7 @@ generate_new_runs(
   include_line = TRUE,
   cutoff = 3,
   plausible_set,
+  burn_in = FALSE,
   ...
 )
 }
@@ -32,6 +33,8 @@ generate_new_runs(
 \item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3}
 
 \item{plausible_set}{Optional - a set of non-implausible points from which to start.}
+
+\item{burn_in}{If importance sampling, should a burn-in phase be used? Default: FALSE}
 
 \item{...}{Any parameters that need to be passed to a particular method (see below)}
 }
@@ -65,6 +68,8 @@ If the method is 'importance', importance sampling is used. Starting from a set 
 non-implausible (preferably space-filling) points, points are sampled from a distribution
 around the points, and included in the output based on a weighted measure gained from the
 mixture distribution of the initial points. The set \code{plausible_set} must be specified.
+If \code{burn_in} is TRUE, then a burn-in phase is used to determine the optimal parameters
+for the proposal distribution.
 
 Note that the \code{plausible_set} parameter size differs between the two methods that use
 it (the 'optical' and 'importance') methods. The optical set should be as large as possible

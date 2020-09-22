@@ -18,7 +18,7 @@ GillespieMultiWaveData
 }
 \description{
 An rda object containing four data.frames: an initial set of points
-(equivalent to \code{rbind(GillespieSIR, GillespieValidation)}), and
+given by \code{GillespieSIR} and \code{GillespieValidation}, and
 the 90 points generated at each of three subsequent waves. The trained
 emulators are provided in \code{\link{GillespieMultiWaveEmulators}}.
 }

@@ -201,7 +201,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta 
 emulator_from_data <- function(input_data, output_names, ranges,
                                input_names = names(ranges), beta, u,
                                c_lengths, funcs, bucov, deltas, ev,
-                               quadratic = FALSE, beta.var = FALSE) {
+                               quadratic = TRUE, beta.var = FALSE) {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
     ranges <- purrr::map(input_names, ~c(-1,1))

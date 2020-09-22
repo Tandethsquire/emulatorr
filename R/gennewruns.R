@@ -1,4 +1,6 @@
 # Helper Functions for uniform sphere sampling
+#'
+#' @importFrom stats rexp rnorm
 runifs <- function(n, d, c = rep(0, d), r = 1) {
   init_points <- matrix(rnorm(n*d, 0, 1), nrow = n, byrow = T)
   exps <- rexp(n, 0.5)
@@ -38,6 +40,8 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' non-implausible (preferably space-filling) points, points are sampled from a distribution
 #' around the points, and included in the output based on a weighted measure gained from the
 #' mixture distribution of the initial points. The set \code{plausible_set} must be specified.
+#' If \code{burn_in} is TRUE, then a burn-in phase is used to determine the optimal parameters
+#' for the proposal distribution.
 #'
 #' Note that the \code{plausible_set} parameter size differs between the two methods that use
 #' it (the 'optical' and 'importance') methods. The optical set should be as large as possible
@@ -67,6 +71,7 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' @param cutoff Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3
 #' @param include_line Should line sampling be applied after point generation? Default: TRUE.
 #' @param plausible_set Optional - a set of non-implausible points from which to start.
+#' @param burn_in If importance sampling, should a burn-in phase be used? Default: FALSE
 #' @param ... Any parameters that need to be passed to a particular method (see below)
 #'
 #' @return A \code{data.frame} containing the set of new points to simulate at.
@@ -94,13 +99,18 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 #' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
-generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, ...) {
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, ...) {
   if (missing(plausible_set) || method == 'lhs')
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
   else points <- plausible_set
   if (method == 'lhs') return(points)
-  if (method == 'importance')
-    points <- importance_sample(emulators, ranges, n_points, z, cutoff, plausible_set = points, ...)
+  if (method == 'importance') {
+    if (!burn_in)
+      sd <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
+    else
+      sd <- NULL
+    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, ...)
+  }
   else if (method == 'slice')
     points <- slice_generation(emulators, ranges, n_points, z, cutoff, x = unlist(points[sample(nrow(points), 1),]), ...)
   else if (method == 'optical')

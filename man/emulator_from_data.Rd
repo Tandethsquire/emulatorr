@@ -16,7 +16,7 @@ emulator_from_data(
   bucov,
   deltas,
   ev,
-  quadratic = FALSE,
+  quadratic = TRUE,
   beta.var = FALSE
 )
 }

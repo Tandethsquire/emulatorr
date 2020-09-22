@@ -33,7 +33,7 @@ A ggplot object.
 A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
 than 2-dimensional, the mid-range values are chosen for any input beyond the first two.
 If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
-or \code{\link{full_wave}}), then the result is a kx2 grid of plots. If a single emulator is
+or \code{\link{full_wave}}), then the result is a kx3 grid of plots. If a single emulator is
 given, then a single plot is returned.
 }
 \details{
