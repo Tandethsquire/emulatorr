@@ -1,7 +1,8 @@
 #' Plot Emulator Outputs
 #'
 #' A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
-#' than 2-dimensional, the mid-range values are chosen for any input beyond the first two.
+#' than 2-dimensional, the mid-range values are chosen for any input beyond the plotted two,
+#' unless specific slice values are chosen (see below).
 #' If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
 #' or \code{\link{full_wave}}), then the result is a kx3 grid of plots. If a single emulator is
 #' given, then a single plot is returned.
@@ -15,6 +16,12 @@
 #' passed to the \code{\link{nth_implausible}} function (for example, which level of
 #' maximum implausibility is wanted).
 #'
+#' The two parameters \code{params} and \code{fixed_vals} determine the 2d slice that is plotted.
+#' The argument \code{params} should be a list containing exactly two elements: the names of the
+#' two parameters to plot. The argument \code{fixed_vals} can contain any number of remaining
+#' parameters and the values to fix them at: this should be a named list of values. If any
+#' parameters do not have specified values, their mid-range values are chosen.
+#'
 #' @import ggplot2
 #' @importFrom viridis scale_fill_viridis
 #' @importFrom reshape2 melt
@@ -25,6 +32,8 @@
 #' @param npoints The number of lattice points per input direction
 #' @param targets The observations. Required if plotting implausibility
 #' @param cb Should implausibility plots be coloured as colourblind friendly?
+#' @param params Which input parameters should be plotted?
+#' @param fixed_vals What should the fixed values of unplotted parameters be?
 #' @param ... Any optional parameters for \code{\link{nth_implausible}}
 #'
 #' @return A ggplot object.
@@ -45,15 +54,30 @@
 #'  emulator_plot(t_ems, var_name = 'var', npoints = 10)
 #'  emulator_plot(t_ems, var_name = 'sd', npoints = 10)
 #'  emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 10)
-emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb = FALSE, ...) {
+#'  emulator_plot(t_ems, npoints = 10, fixed_vals = list(aSR = 0.01))
+#'  emulator_plot(t_ems, npoints = 10, params = c('aSI', 'aSR'), fixed_vals = list(aIR = 0.4))
+emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb = FALSE, params = NULL, fixed_vals = NULL, ...) {
+  if (class(em)[1] == "Emulator") rs <- em$ranges
+  else if (class(em)[1] == "list" && class(em[[1]])[1] == "Emulator") rs <- em[[1]]$ranges
+  if (is.null(params) || length(params) != 2 || any(!params %in% names(rs))) p_vals <- c(1,2)
+  else p_vals <- which(names(rs) %in% params)
   makeGrid <- function(n_points, ranges) {
-    grd <- expand.grid(seq(ranges[[1]][1], ranges[[1]][2], length.out = n_points), seq(ranges[[2]][1], ranges[[2]][2], length.out = n_points))
-    if (length(ranges) > 2) {
-      for (i in 3:length(ranges)) {
-        nm <- names(ranges)[i]
-        grd[[nm]] <- (ranges[[i]][1]+ranges[[i]][2])/2
+    grd <- expand.grid(seq(ranges[[p_vals[1]]][1], ranges[[p_vals[1]]][2], length.out = n_points), seq(ranges[[p_vals[2]]][1], ranges[[p_vals[2]]][2], length.out = n_points))
+    grd <- setNames(grd, names(ranges)[p_vals])
+    if (!is.null(fixed_vals) && all(names(fixed_vals) %in% names(ranges))) {
+      for (i in 1:length(fixed_vals)) grd[[names(fixed_vals)[i]]] <- fixed_vals[[names(fixed_vals)[i]]]
+      used_names <- c(names(ranges)[p_vals], names(fixed_vals))
+    }
+    else used_names <- names(ranges)[p_vals]
+    if (length(used_names) < length(ranges))
+    {
+      unused_nm_ind <- which(!names(ranges) %in% used_names)
+      unused_nms <- names(ranges)[unused_nm_ind]
+      for (i in 1:length(unused_nms)) {
+        grd[[unused_nms[i]]] <- (ranges[[unused_nm_ind[i]]][1] + ranges[[unused_nm_ind[i]]][2])/2
       }
     }
+    grd <- grd[,purrr::map_dbl(names(ranges), ~which(names(grd) == .))]
     return(grd)
   }
   # If a single emulator, plot it!
@@ -81,7 +105,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
     }
     else stop("Could not plot output.")
     data_grid <- data.frame(cbind(grid, outputs)) %>% setNames(c(names(em$ranges), var_name))
-    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em$ranges)[[1]]], y = data_grid[,names(em$ranges)[[2]]]))
+    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em$ranges)[[p_vals[1]]]], y = data_grid[,names(em$ranges)[[p_vals[2]]]]))
     if (var_name == 'exp' || var_name == 'var' || var_name == 'sd')
     {
       if (var_name == 'exp') nm <- 'E[f(x)]'
@@ -101,8 +125,8 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
     }
     return(g +
              labs(title = title) +
-             xlab(names(em$ranges)[[1]]) +
-             ylab(names(em$ranges)[[2]]) +
+             xlab(names(em$ranges)[[p_vals[1]]]) +
+             ylab(names(em$ranges)[[p_vals[2]]]) +
              scale_x_continuous(expand = c(0,0)) +
              scale_y_continuous(expand = c(0,0)) +
              theme_minimal())
@@ -117,12 +141,12 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
       impnames <- c(0, '', '', 1, '', '', 2, '', '', 3, '', '', '', 5, '', '', '', 10, 15, '')
       ifelse(cb, cols <- colourblind, cols <- redgreen)
       included <- c(purrr::map_lgl(impbrks[2:length(impbrks)], ~any(data_grid$I < .)), TRUE)
-      g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]])) +
+      g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[p_vals[1]]]], y = data_grid[,names(em[[1]]$ranges)[[p_vals[2]]]])) +
         geom_contour_filled(aes(z = I), breaks = impbrks[included], colour = 'black') +
         scale_fill_manual(values = cols[included], labels = impnames[included], guide = guide_legend(reverse = TRUE)) +
         labs(title = "Maximum Implausibility", fill = "I") +
-        xlab(names(em[[1]]$ranges)[[1]]) +
-        ylab(names(em[[1]]$ranges)[[2]]) +
+        xlab(names(em[[1]]$ranges)[[p_vals[1]]]) +
+        ylab(names(em[[1]]$ranges)[[p_vals[2]]]) +
         scale_x_continuous(expand = c(0,0)) +
         scale_y_continuous(expand = c(0,0)) +
         theme_minimal()
@@ -142,7 +166,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
     }
     em_names <- purrr::map_chr(em, ~.$output_name)
     data_grid <- data_grid %>% setNames(c(names(em[[1]]$ranges), em_names)) %>% melt(id.vars = names(em[[1]]$ranges))
-    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[1]]], y = data_grid[,names(em[[1]]$ranges)[[2]]]))
+    g <- ggplot(data = data_grid, aes(x = data_grid[,names(em[[1]]$ranges)[[p_vals[1]]]], y = data_grid[,names(em[[1]]$ranges)[[p_vals[2]]]]))
     if (var_name == 'exp' || var_name == 'var' || var_name == 'sd') {
       max_val <- max(data_grid$value)
       min_val <- min(data_grid$value)
@@ -165,13 +189,14 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
     return(g +
              facet_wrap(~variable, ncol = max(3, floor(sqrt(length(em)))+1)) +
              labs(title = title) +
-             xlab(names(em[[1]]$ranges)[[1]]) +
-             ylab(names(em[[1]]$ranges)[[2]]) +
+             xlab(names(em[[1]]$ranges)[[p_vals[1]]]) +
+             ylab(names(em[[1]]$ranges)[[p_vals[2]]]) +
              scale_x_continuous(expand = c(0,0)) +
              scale_y_continuous(expand = c(0,0)) +
              theme_minimal())
   }
 }
+
 
 #' Emulator Plots with Outputs
 #'

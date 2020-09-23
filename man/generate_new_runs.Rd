@@ -102,6 +102,7 @@ targets <- list(
 non_imp_points <- GillespieImplausibility[GillespieImplausibility$I <= 4, names(ranges)]
 example_point <- unlist(non_imp_points[sample(1:length(non_imp_points[,1]), 1),],
  use.names = FALSE)
+\donttest{
 pts_lhs <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3)
 #pts_slice <- generate_new_runs(trained_ems, ranges, 10, targets,
  #method = 'slice', cutoff = 4, x = example_point)
@@ -109,5 +110,5 @@ pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,
  method = 'optical', cutoff = 4, plausible_set = non_imp_points)
 non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
- method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)
+ method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)}
 }

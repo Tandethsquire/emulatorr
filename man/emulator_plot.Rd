@@ -10,6 +10,8 @@ emulator_plot(
   npoints = 40,
   targets = NULL,
   cb = FALSE,
+  params = NULL,
+  fixed_vals = NULL,
   ...
 )
 }
@@ -24,6 +26,10 @@ emulator_plot(
 
 \item{cb}{Should implausibility plots be coloured as colourblind friendly?}
 
+\item{params}{Which input parameters should be plotted?}
+
+\item{fixed_vals}{What should the fixed values of unplotted parameters be?}
+
 \item{...}{Any optional parameters for \code{\link{nth_implausible}}}
 }
 \value{
@@ -31,7 +37,8 @@ A ggplot object.
 }
 \description{
 A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
-than 2-dimensional, the mid-range values are chosen for any input beyond the first two.
+than 2-dimensional, the mid-range values are chosen for any input beyond the plotted two,
+unless specific slice values are chosen (see below).
 If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
 or \code{\link{full_wave}}), then the result is a kx3 grid of plots. If a single emulator is
 given, then a single plot is returned.
@@ -45,6 +52,12 @@ implausibility is only permitted if a list of emulators is provided: the \code{.
 parameters that can be passed to this function are for optional parameters that can be
 passed to the \code{\link{nth_implausible}} function (for example, which level of
 maximum implausibility is wanted).
+
+The two parameters \code{params} and \code{fixed_vals} determine the 2d slice that is plotted.
+The argument \code{params} should be a list containing exactly two elements: the names of the
+two parameters to plot. The argument \code{fixed_vals} can contain any number of remaining
+parameters and the values to fix them at: this should be a named list of values. If any
+parameters do not have specified values, their mid-range values are chosen.
 }
 \examples{
  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
@@ -61,4 +74,6 @@ maximum implausibility is wanted).
  emulator_plot(t_ems, var_name = 'var', npoints = 10)
  emulator_plot(t_ems, var_name = 'sd', npoints = 10)
  emulator_plot(t_ems, var_name = 'imp', targets = targets, npoints = 10)
+ emulator_plot(t_ems, npoints = 10, fixed_vals = list(aSR = 0.01))
+ emulator_plot(t_ems, npoints = 10, params = c('aSI', 'aSR'), fixed_vals = list(aIR = 0.4))
 }
