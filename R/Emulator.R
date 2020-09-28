@@ -65,6 +65,7 @@ Emulator <- R6::R6Class(
       }
     },
     get_exp = function(x) {
+      x <- x[, names(x) %in% names(self$ranges)]
       x <- eval_funcs(scale_input, x, self$ranges)
       g <- t(eval_funcs(self$basis_f, x))
       bu <- eval_funcs(self$beta_u_cov, x)
@@ -77,6 +78,7 @@ Emulator <- R6::R6Class(
       return(beta_part + u_part)
     },
     get_cov = function(x, xp = NULL, full = FALSE) {
+      x <- x[, names(x) %in% names(self$ranges)]
       x <- eval_funcs(scale_input, x, self$ranges)
       if (is.null(xp)) xp <- x
       else xp <- eval_funcs(scale_input, xp, ranges)

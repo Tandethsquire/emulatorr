@@ -148,17 +148,22 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
 # A function to perform slice sampling
 slice_generation <- function(emulators, ranges, n_points, z, cutoff = 3, x) {
   print("Performing slice sampling...")
+  J <- function(x) {
+    for (i in 1:length(emulators)) {
+      if (!emulators[[i]]$implausibility(x, z[[i]], cutoff)) return(FALSE)
+    }
+    return(TRUE)
+  }
   out_points <- x
-  x0 <- c(out_points, use.names = F)
-  x_new = x0
+  x0 <- x_new <- c(out_points, use.names = F)
   for (i in 1:n_points) {
     for (j in 1:length(ranges)) {
       xl = ranges[[j]][1]
       xr = ranges[[j]][2]
       repeat {
         x_new[j] <- runif(1, min = xl, max = xr)
-        if (nth_implausible(emulators, x_new, z)<=cutoff) break
-        else ifelse(x_new[j]<x0[j], xl <- x_new[j], xr <- x_new[j])
+        if (J(data.frame(matrix(x_new, nrow = 1)) %>% setNames(names(ranges)))) break
+        ifelse(x_new[j]<x0[j], xl <- x_new[j], xr <- x_new[j])
       }
     }
     out_points <- cbind(out_points, x_new)
@@ -217,6 +222,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
   range_func <- function(x, ranges) {
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
+  if (!burn_in) sd = min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
   if (is.null(sd)) {
     if (dist == 'sphere') {
       cat("Performing burn-in...\n")
@@ -255,7 +261,8 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     else {
       new_point <- runifs(1, d, unlist(checking_points[which_point,], use.names = F), r = sd)
     }
-    if (!J(c(new_point)) || !range_func(new_point, ranges)) next
+    new_point <- data.frame(matrix(new_point, nrow = 1)) %>% setNames(names(ranges))
+    if (!J(new_point) || !range_func(new_point, ranges)) next
     if (dist == 'normal') {
       point_weight <- 1/n_initial * sum(apply(checking_points, 1, function(x) dmvnorm(new_point, mean = x, sigma = sd)))
       choosing_prob <- min_w/point_weight
@@ -267,7 +274,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     pick <- runif(1)
     if (pick <= choosing_prob) {
       pts_added <- pts_added + 1
-      out_arr[pts_added,] <- new_point
+      out_arr[pts_added,] <- unlist(new_point)
     }
   }
   if (burn_in) return(nrow(checking_points) * n_points/pts_tested * pi^(d/2) * sd^d / gamma(d/2+1))
@@ -275,7 +282,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
 }
 
 # Line sampling
-line_sample <- function(ems, points, z, ranges, n_lines = 20, cutoff = 3) {
+line_sample <- function(ems, points, z, ranges, n_lines = 20, ppl = 25, cutoff = 3) {
   print("Performing line sampling...")
   out_pts <- points
   range_func <- function(x, ranges) {
@@ -286,7 +293,7 @@ line_sample <- function(ems, points, z, ranges, n_lines = 20, cutoff = 3) {
     s_pts <- points[sample(nrow(points), 2),]
     x1 <- s_pts[1,]
     x2 <- s_pts[2,]
-    lambda <- seq(-1,1,length.out = 50)
+    lambda <- seq(-1,1,length.out = ppl)
     enough_pts <- FALSE
     while(!enough_pts) {
       line_points <- do.call('rbind', purrr::map(lambda, ~x1+.*(x1-x2)))
