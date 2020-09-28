@@ -49,6 +49,7 @@
 #'  # n_points = 30, deltas = rep(0.1, 3), quadratic = TRUE)
 
 full_wave <- function(input_data, validation_data, ranges, output_names, targets, n_points = 40, previous_wave = NULL, sample_method = 'importance', ...) {
+  cat("Building emulators...\n")
   targets <- setNames(targets, output_names)
   if (is.null(previous_wave))
     base_emulators <- emulator_from_data(input_data, output_names, ranges, ...)
@@ -71,6 +72,10 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
     }
   }
   if (length(trained_emulators) < length(output_names)/2) stop("Not enough outputs can be emulated.")
+  combined_data <- rbind(input_data, validation_data)
+  em_order <- map_dbl(seq_along(trained_emulators), ~sum(trained_emulators[[.]]$implausibility(combined_data[,names(ranges)], targets[[.]], 3)))
+  trained_emulators <- trained_emulators[order(em_order)]
+  targets <- targets[order(em_order)]
   cat("Generating new sample points...\n")
   new_points <- generate_new_runs(trained_emulators, ranges, n_points, targets, method = sample_method)
   new_ranges <- purrr::map(names(ranges), ~c(min(new_points[,.]), max(new_points[,.]))) %>% setNames(names(ranges))

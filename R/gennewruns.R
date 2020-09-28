@@ -123,7 +123,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
 
 # A function to perform lhs sampling
 lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff = 3) {
-  print("Performing Latin Hypercube Sampling with Rejection...")
+  print("Performing Latin hypercube sampling with rejection...")
   current_trace = NULL
   out_points <- NULL
   new_points <- eval_funcs(scale_input, setNames(data.frame(2*(lhs::maximinLHS(n_points*20, length(ranges))-1/2)), names(ranges)), ranges, FALSE)
