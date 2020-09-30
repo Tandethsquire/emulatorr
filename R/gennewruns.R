@@ -295,7 +295,9 @@ line_sample <- function(ems, points, z, ranges, n_lines = 20, ppl = 25, cutoff =
     x2 <- s_pts[2,]
     lambda <- seq(-1,1,length.out = ppl)
     enough_pts <- FALSE
+    how_many_attempts <- 0
     while(!enough_pts) {
+      how_many_attempts <- how_many_attempts + 1
       line_points <- do.call('rbind', purrr::map(lambda, ~x1+.*(x1-x2)))
       line_imps <- nth_implausible(ems, line_points, z)
       pts_bool <- (line_imps <= cutoff & apply(line_points, 1, range_func, ranges))
@@ -310,7 +312,9 @@ line_sample <- function(ems, points, z, ranges, n_lines = 20, ppl = 25, cutoff =
         }
         out_pts <- rbind(out_pts, line_points[add_pts,])
       }
+      if(how_many_attempts > 10) break
     }
+    if (how_many_attempts > 10) i <- i - 1
     i <- i + 1
   }
   return(out_pts)
