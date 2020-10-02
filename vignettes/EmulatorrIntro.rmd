@@ -147,7 +147,8 @@ samples <- sample(nrow(wave0), 40)
 train0 <- wave0[samples,1:9]
 valid0 <- wave0[!seq_along(wave0[,1])%in%samples,1:9]
 output_names <- paste0("I",seq(10,30,by=5))
-ems0 <- emulator_from_data(train0, output_names, ranges, quadratic = TRUE)
+evs <- apply(wave0[10:ncol(wave0)], 2, mean)
+ems0 <- emulator_from_data(train0, output_names, ranges, ev = evs)
 ```
 The `emulator_from_data` function will take any of the specifications as parameters, if the default behaviour does not provide an acceptable set of emulators.
 
@@ -185,7 +186,7 @@ We can see that the trained emulators more reasonably show the structure of the 
 ```{r}
 em_evals <- wave1$I10$get_exp(train0[,names(ranges)])
 all(abs(em_evals - train0$I10) < 10^(-12))
-all(wave1$I10$get_cov(train0[,names(ranges)]) < 10^(-12))
+all(wave1$I10$get_cov(train0[,names(ranges)]) < 10^(-10))
 ```
 Note the comparative speeds of evaluation, here. The initial $80$ points we generated from the simulator took around 45 seconds on a relatively powerful laptop; evaluating the emulator expectation over a $40\times40$ grid takes less than 5 seconds; evaluating the emulator variance over the same grid takes 30 seconds.
 
