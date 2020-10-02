@@ -50,7 +50,7 @@ Emulator <- R6::R6Class(
       if (is.null(ranges)) stop("Ranges for the parameters must be specified.")
       self$ranges <- ranges
       if (!is.null(data)) {
-        self$in_data <- scale_input(data[,names(self$ranges)], self$ranges)
+        self$in_data <- data.matrix(scale_input(data[,names(self$ranges)], self$ranges))
         self$out_data <- data[, !(names(data) %in% names(self$ranges))]
       }
       if (!is.null(self$in_data)) {
@@ -63,7 +63,7 @@ Emulator <- R6::R6Class(
     },
     get_exp = function(x) {
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- scale_input(x, self$ranges)
+      x <- data.matrix(scale_input(x, self$ranges))
       g <- t(apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y)))
       bu <- t(apply(x, 1, self$beta_u_cov))
       beta_part <- g %*% self$beta_mu
@@ -76,7 +76,7 @@ Emulator <- R6::R6Class(
     },
     get_cov = function(x, xp = NULL, full = FALSE) {
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- scale_input(x, self$ranges)
+      x <- data.matrix(scale_input(x, self$ranges))
       g_x <- apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y))
       bupart_x <- apply(x, 1, self$beta_u_cov)
       if (is.null(xp)) {
@@ -85,7 +85,7 @@ Emulator <- R6::R6Class(
         bupart_xp <- bupart_x
       }
       else {
-        xp <- scale_input(xp, self$ranges)
+        xp <- data.matrix(scale_input(xp, self$ranges))
         g_xp <- apply(xp, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y))
         bupart_xp <- apply(xp, 1, self$beta_u_cov)
       }
@@ -133,7 +133,7 @@ Emulator <- R6::R6Class(
       return(imp<=cutoff)
     },
     adjust = function(data, out_name) {
-      this_data_in <- scale_input(data[,names(self$ranges)], self$ranges)
+      this_data_in <- data.matrix(scale_input(data[,names(self$ranges)], self$ranges))
       this_data_out <- data[,out_name]
       G <- apply(this_data_in, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x))
       O <- minv(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x)))
