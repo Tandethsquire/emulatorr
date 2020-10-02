@@ -42,7 +42,7 @@ Emulator <- R6::R6Class(
         sum(func_vals) > 1
       })
       self$corr_func <- function(x, xp) {
-        extra <- ifelse(sum((x-xp)^2) < 0.00001, 1, 0)
+        extra <- if(sum((x-xp)^2) > 1e-6) 0 else 1
         (1-delta) * self$corr(x[self$active_vars], xp[self$active_vars]) + delta * extra
       }
       self$beta_u_cov <- if (is.null(bucov)) function(x) rep(0, length(self$beta_mu)) else bucov
