@@ -190,6 +190,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta 
 #'   ranges = ranges, quadratic = TRUE)
 #'  ems # Now includes quadratic terms (but only where they're warranted)
 #'
+#'  \donttest{
 #'  ems2 <- emulator_from_data(GillespieSIR, output_names = out_vars,
 #'   ranges = ranges, c_lengths = c(0.55, 0.6, 0.59),
 #'   deltas = c(0.1, 0.2, 0.2), quadratic = TRUE)
@@ -198,6 +199,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta 
 #'  ems2_beta <- emulator_from_data(GillespieSIR, output_names = out_vars,
 #'   ranges = ranges, c_lengths = c(0.55, 0.6, 0.59),
 #'   deltas = c(0.1, 0.2, 0.2), quadratic = TRUE, beta.var = TRUE)
+#'  }
 emulator_from_data <- function(input_data, output_names, ranges,
                                input_names = names(ranges), beta, u,
                                c_lengths, funcs, bucov, deltas, ev,

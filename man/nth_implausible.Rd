@@ -35,7 +35,7 @@ targets <- list(
  list(val = 30, sigma = 11.16),
  list(val = 689, sigma = 14.32)
 )
-nth_implausible(ems, c(0.4, 0.25, 0.025), targets)
+nth_implausible(ems, data.frame(aSI = 0.4, aIR = 0.25, aSR = 0.025), targets)
 grid <- expand.grid(
  aSI = seq(0.1, 0.8, length.out = 4),
  aIR = seq(0, 0.5, length.out = 4),
