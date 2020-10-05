@@ -1,94 +1,63 @@
 #' Linear Model Generation
 #'
-#' Creates a linear model from data and a list of inputs.
-#' There are two ways to generate the model; either start with all possible linear
-#' terms, and then stepwise remove them (using \code{step}), or start with an intercept
-#' add stepwise add linear terms, only retaining them if the AIC is improved. Which is
-#' chosen is dependent on the value of \code{add}; in the event where \code{add = FALSE}
-#' and there are not enough degrees of freedom, a warning will be given.
+#' Creates a best fit of coefficients for a given data set..
+#' There are two ways to generate the model; either start with all possible terms
+#' (including cross-terms) up to order \code{n}, and then stepwise remove them;
+#' or start with an intercept and stepwise add terms up to order \code{n}, only
+#' retaining a term if the Information Criterion is improved. Which method is
+#' chosen is dependent on the value of \code{add}; in the event where
+#' \code{add = FALSE} and there are not enough degrees of freedom to start with
+#' all possible terms, a warning will be given.
 #'
-#' @importFrom stats lm step setNames AIC update as.formula
-#'
-#' @param data A \code{data.frame} containing the input and output values
-#' @param ranges A named \code{list} consisting of the ranges of the input parameters
-#' @param output_name A string corresponding to the output to be modelled
-#' @param add Should we perform stepwise add or stepwise delete? Default: \code{FALSE}
-#'
-#' @return The fitted model
-#' @export
-get_linear_model <- function(data, ranges, output_name, add = FALSE) {
-  if (!add & (length(ranges) + 1 > length(data[,1]))) {
-    warning("Number of linear terms is greater than the degrees of freedom in the data. Changing to add = TRUE.")
-    add <- TRUE
-  }
-  input_params <- names(ranges)
-  scaled_input_data <- eval_funcs(scale_input, data[,names(ranges)], ranges)
-  full_scaled <- setNames(data.frame(cbind(scaled_input_data, data[,output_name])), c(names(ranges), output_name))
-  if (!add) {
-    model <- step(lm(data = full_scaled, as.formula(paste(output_name, paste(names(ranges), collapse = "+"), sep="~"))), trace = 0)
-  }
-  else {
-    model <- lm(data = full_scaled, as.formula(paste(output_name,  " ~ 1", sep = "")))
-    aic <- AIC(model)
-    for (i in 1:length(ranges)) {
-      temp_model <- update(model, as.formula(paste(". ~ . + ", names(ranges)[i], sep = "")))
-      temp_aic <- AIC(temp_model)
-      if (temp_aic < aic) {
-        model <- temp_model
-        aic <- temp_aic
-      }
-    }
-  }
-  return(model)
-}
-
-#' Quadratic Model Generation
-#'
-#' Creates a quadratic model from data and a list of inputs.
-#' There are two ways to generate the model; either start with all possible linear and
-#' quadratic terms, and then stepwise remove them (using \code{step}), or start with a
-#' linear model (maybe from \code{\link{get_linear_model}}) and add quadratic terms one
-#' by one, only retaining them if the AIC is improved. Which is chosen is dependent on
-#' the value of \code{add}; in the event where \code{add = FALSE} and there are not
-#' enough degrees of freedom, a warning will be given.
-#'
-#' @import purrr
-#' @importFrom stats lm step setNames AIC update as.formula
+#' @importFrom stats lm step setNames as.formula
 #'
 #' @param data A \code{data.frame} containing the input and output values
 #' @param ranges A named \code{list} consisting of the ranges of the input parameters
 #' @param output_name A string corresponding to the output to be modelled
 #' @param add Should we perform stepwise add or stepwise delete? Default: \code{FALSE}
-#' @param linear_model Optional. A linear model to augment if add = TRUE
+#' @param order To what order terms should the model be fitted? Default: 2 (quadratic)
 #'
 #' @return The fitted model
 #' @export
-get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_model = NULL) {
-  .x <- NULL
-  if (!add & (choose(length(ranges)+2, length(ranges)) > length(data[,1]))) {
-    warning("Number of regression terms is greater than the degrees of freedom in the data. Changing to add = TRUE.")
-    add <- TRUE
-  }
-  input_params <- names(ranges)
-  scaled_input_data <- eval_funcs(scale_input, data[,names(ranges)], ranges)
-  full_scaled <- setNames(data.frame(cbind(scaled_input_data, data[,output_name])), c(names(ranges), output_name))
-  if (!add) {
-    quad_terms <- paste(purrr::map_chr(names(ranges), ~paste("I(",.x,"^2)", sep = "")), collapse = "+", sep = "")
-    model <- step(lm(data = full_scaled, as.formula(paste(c(output_name, "~(", paste(names(ranges), collapse = "+"), ")^2+", quad_terms), collapse=""))), trace = 0)
+get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order = 2) {
+  lower_form <- as.formula(paste(output_name, "1", sep = " ~ "))
+  if (order == 1) {
+    upper_form <- as.formula(
+      paste(
+        output_name, " ~ ",
+        paste0(names(ranges), collapse = "+"),
+        sep = ""
+      )
+    )
   }
   else {
-    ifelse (is.null(linear_model), model <- get_linear_model(data, ranges, output_name, add = add), model <- linear_model)
-    aic <- AIC(model)
-    quad_terms <- purrr::map_chr(names(ranges), paste("I(",.x,"^2)", sep =  ""))
-    poss_q <- c(apply(expand.grid(names(ranges), names(ranges)), 1, paste, collapse = ":"), quad_terms)
-    for (i in 1:length(poss_q)) {
-      temp_model <- update(model, as.formula(paste(". ~ . + ", poss_q[i], sep = "")))
-      temp_aic <- AIC(temp_model)
-      if (temp_aic < aic) {
-        model <- temp_model
-        aic <- temp_aic
-      }
-    }
+    upper_form <- as.formula(
+      paste(
+        output_name, " ~ ",
+        paste(
+          paste("(", paste(names(ranges), collapse = "+"), ")^", order, sep = ""),
+          paste0("I(", names(ranges), paste(")^", order, sep = ""), collapse = "+"),
+          sep = "+"
+        ),
+        sep = ""
+      )
+    )
+  }
+  if (!add & (choose(length(ranges) + order, length(ranges)) > nrow(data))) {
+    warning("Maximum number of regression terms is greater than the degrees of freedom in the data. Changing to add = TRUE.")
+    add <- TRUE
+  }
+  scaled_input_data <- scale_input(data[, names(ranges)], ranges)
+  full_scaled_data <- setNames(cbind(scaled_input_data, data[,output_name]), c(names(ranges), output_name))
+  if (add) {
+    model <- step(lm(formula = lower_form, data = full_scaled_data),
+                  scope = list(lower = lower_form, upper = upper_form),
+                  direction = "forward", trace = 0, k = log(nrow(data)))
+  }
+  else {
+    model <- step(lm(formula = upper_form, data = full_scaled_data),
+                  scope = list(lower = lower_form, upper = upper_form),
+                  direction = "backward", trace = 0, k = log(nrow(data)))
   }
   return(model)
 }
@@ -99,7 +68,7 @@ get_quadratic_model <- function(data, ranges, output_name, add = FALSE, linear_m
 get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta = 0.1) {
   best_L <- -Inf
   best_sigma <- best_theta <- NULL
-  hs <- eval_funcs(h, inputs)
+  hs <- apply(inputs, 1, function(y) purrr::map_dbl(h, purrr::exec, y))
   corr_func <- function(x, xp, theta, delta) {
     (1-delta) * exp(-sum((x-xp)^2/theta^2)) + ifelse(all(x == xp), delta, 0)
   }
@@ -107,20 +76,18 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta 
     apply(points, 1, function(x) apply(points, 1, function(y) corr_func(x,y,theta,delta)))
   }
   t_list <- seq(theta_range[1], theta_range[2], length.out = n_ints)
-  for (i in t_list) {
+  likelihood_list <- lapply(t_list, function(i) {
     cmat <- corr_matrix(inputs, i, delta)
-    cm <- chol2inv(chol(cmat))
+    cm <- minv(cmat)
     #beta_est <- chol2inv(chol(hs %*% cm %*% t(hs))) %*% hs %*% cm %*% outputs
     beta_est <- rep(0, nrow(hs))
     var_est <- t(outputs - t(hs) %*% beta_est) %*% cm %*% (outputs - t(hs) %*% beta_est)
-    lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% t(hs))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
-    if (lik > best_L) {
-      best_L <- lik
-      best_sigma <- sqrt(var_est)
-      best_theta <- i
-    }
-  }
-  return(list(sigma = best_sigma/sqrt(length(outputs)), theta = best_theta))
+    lik <- det(cmat)^(-1/2) * det(mmult(hs, mmult(cm, t(hs))))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
+    return(list(L = lik, S = sqrt(var_est), Th = i))
+  })
+  liks <- purrr::map_dbl(likelihood_list, ~.$L)
+  l_ind <- which.max(liks)
+  return(list(sigma = likelihood_list[[l_ind]]$S/sqrt(length(outputs)), theta = likelihood_list[[l_ind]]$Th))
 }
 
 #' Generate Prior Emulators from Data
@@ -183,7 +150,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta 
 #'  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
 #'  out_vars <- c('nS', 'nI', 'nR')
 #'  ems_linear <- emulator_from_data(GillespieSIR, output_names = out_vars,
-#'   ranges = ranges)
+#'   ranges = ranges, quadratic = FALSE)
 #'  ems_linear # Printout of the key information
 #'
 #'  ems <- emulator_from_data(GillespieSIR, output_names = out_vars,
@@ -212,11 +179,11 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if (missing(beta) || missing(funcs)) {
     if (quadratic) {
       does_add <- (choose(length(input_names)+2, length(input_names)) > nrow(input_data))
-      models <- purrr::map(output_names, ~get_quadratic_model(input_data, ranges, ., add = does_add))
+      models <- purrr::map(output_names, ~get_coefficient_model(input_data, ranges, ., add = does_add))
     }
     else {
       does_add <- (length(input_names)+1 > nrow(input_data))
-      models <- purrr::map(output_names, ~get_linear_model(input_data, ranges, ., add = does_add))
+      models <- purrr::map(output_names, ~get_coefficient_model(input_data, ranges, ., add = does_add, order = 1))
     }
     all_funcs <- c(function(x) 1, purrr::map(seq_along(input_names), ~function(x) x[[.]]))
     all_coeffs <- c("(Intercept)", input_names)
@@ -243,7 +210,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
     residuals <- purrr::map(seq_along(output_names), ~data[,output_names[[.]]] - apply(sweep(t(eval_funcs(model_basis_funcs[[.]], data[,names(ranges)])), 2, model_beta_mus[[.]], "*"), 1, sum))
     ifelse(quadratic, theta_range <- c(0.2, 1), theta_range <- c(0.2, 2))
     specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
-    model_u_sigmas <- map(specs, ~as.numeric(.$sigma))
+    model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
     model_u_mus <- purrr::map(output_names, ~function(x) 0)
     if (missing(c_lengths)) c_lengths <- purrr::map(specs, ~as.numeric(.$theta))
     model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, c_lengths[[.]]))

@@ -11,5 +11,3 @@ arma::mat minv(arma::mat M) {
   arma::mat res = inv(M);
   return res;
 }
-
-

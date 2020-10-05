@@ -99,32 +99,45 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)}
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, ...) {
-  if (missing(plausible_set) || method == 'lhs')
+  if (missing(plausible_set) || method == 'lhs') {
+    print("Performing LHS sampling with rejection...")
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
+  }
   else points <- plausible_set
-  if (method == 'lhs') return(points)
-  if (include_line) points <- line_sample(emulators, points, z, ranges)
+  if (method == 'lhs') {
+    print("Performing LHS sampling with rejection...")
+    return(points)
+  }
+  if (include_line) {
+    print("Performing line sampling...")
+    points <- line_sample(emulators, points, z, ranges)
+  }
   if (method == 'importance') {
+    print("Performing importance sampling...")
     if (!burn_in)
       sd <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
     else
       sd <- NULL
     points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, ...)
   }
-  else if (method == 'slice')
+  else if (method == 'slice') {
+    print("Performing slice sampling...")
     points <- slice_generation(emulators, ranges, n_points, z, cutoff, x = unlist(points[sample(nrow(points), 1),]), ...)
+  }
   else if (method == 'optical')
+  {
+    print("Performing optical depth sampling...")
     points <- optical_depth_generation(emulators, ranges, n_points, z, cutoff, plausible_set = points)
+  }
   else stop("Unknown method used. Options are 'lhs', 'slice', 'optical', 'importance'.")
   return(points)
 }
 
 # A function to perform lhs sampling
 lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff = 3) {
-  print("Performing Latin hypercube sampling with rejection...")
   current_trace = NULL
   out_points <- NULL
-  new_points <- eval_funcs(scale_input, setNames(data.frame(2*(lhs::maximinLHS(n_points*20, length(ranges))-1/2)), names(ranges)), ranges, FALSE)
+  new_points <- eval_funcs(scale_input, setNames(data.frame(2*(lhs::randomLHS(n_points*20, length(ranges))-1/2)), names(ranges)), ranges, FALSE)
   if (!missing(z)) new_points <- new_points[nth_implausible(emulators, new_points, z)<=cutoff,]
   if (length(new_points[,1]) < n_points) {
     message(cat("Only", length(new_points[,1]), "points generated."))
@@ -145,7 +158,6 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
 
 # A function to perform slice sampling
 slice_generation <- function(emulators, ranges, n_points, z, cutoff = 3, x) {
-  print("Performing slice sampling...")
   J <- function(x) {
     for (i in 1:length(emulators)) {
       if (!emulators[[i]]$implausibility(x, z[[i]], cutoff)) return(FALSE)
@@ -172,7 +184,6 @@ slice_generation <- function(emulators, ranges, n_points, z, cutoff = 3, x) {
 
 # A function to perform optical depth sampling
 optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 100, cutoff = 3, plausible_set, ...) {
-  print("Performing optical depth sampling...")
   get_depth <- function(plausible_set, ranges, var_name, nbins = 100) {
     output <- c()
     varseq <- seq(ranges[[var_name]][1], ranges[[var_name]][2], length.out = (nbins+1))
@@ -208,112 +219,87 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
   return(outset)
 }
 
-# Importance Sampling from initial points
 importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, dist = 'sphere', plausible_set, burn_in = FALSE) {
-  print("Performing importance sampling...")
-  J <- function(x) {
+  J <- function(dat) {
+    t_dat <- dat
     for (i in 1:length(ems)) {
-      if (!ems[[i]]$implausibility(x, z[[i]], cutoff)) return(FALSE)
+      t_dat <- t_dat[ems[[i]]$implausibility(t_dat, z[[i]], cutoff),]
     }
-    return(TRUE)
+    return(rownames(dat) %in% rownames(t_dat))
   }
-  range_func <- function(x, ranges) {
-    all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
+  range_func <- function(dat, ranges) {
+    apply(dat, 1, function(x) all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2])))
   }
-  if (!burn_in) sd = min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
-  if (is.null(sd)) {
-    if (dist == 'sphere') {
-      cat("Performing burn-in...\n")
-      bi <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/6
-      b_int <- bi/10
-      bv1 <- importance_sample(ems, ranges, max(500, floor(n_points/5)), z, sd = bi, plausible_set = plausible_set, burn_in = TRUE)
-      bv2 <- bv1
-      while (bv1 <= bv2) {
-        bi <- bi + b_int
-        bv1 <- bv2
-        bv2 <- importance_sample(ems, ranges, max(500, floor(n_points/5)), z, sd = bi, plausible_set = plausible_set, burn_in = TRUE)
-      }
-      sd <- bi
-      cat("Optimal radius: ", sd, "; approximate volume: ", bv2, "\n", sep = "")
-    }
-    else {
+  if (!burn_in) {
+    if (dist == 'normal') {
       lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
       sd <- diag((lengths/6)^2, length(lengths))
     }
+    else sd = mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
   }
-  pts_added <- 0
-  pts_tested <- 0
-  d <- length(plausible_set)
-  out_arr <- array(0, dim = c(n_points, length(plausible_set)))
-  checking_points <- plausible_set
-  n_initial <- length(checking_points[,1])
+  if (is.null(sd)) {
+    if (dist == 'sphere') {
+      print("Performing burn-in..")
+      upper_n_p <- 500
+      sd_temp <- mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
+      sd_int <- sd_temp/10
+      old_vol <- importance_sample(ems, ranges, max(upper_n_p, n_points), z, sd = sd_temp, plausible_set = plausible_set, burn_in = TRUE)
+      new_vol <- old_vol
+      while(old_vol <= new_vol) {
+        if (new_vol == 0) upper_n_p <- 2 * upper_n_p
+        sd_temp <- sd_temp + sd_int
+        old_vol <- new_vol
+        new_vol <- importance_sample(ems, ranges, max(upper_n_p, n_points), z, sd = sd_temp, plausible_set = plausible_set, burn_in = TRUE)
+      }
+      return(importance_sample(ems, ranges, n_points, z, sd = sd_temp, plausible_set = plausible_set))
+    }
+  }
+  new_points <- NULL
   if (dist == 'normal') {
-    weights <- apply(checking_points, 1, function(x) 1/n_initial * sum(apply(checking_points, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
+    weights <- apply(plausible_set, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
     min_w <- min(weights)
   }
-  while (pts_added < n_points) {
-    pts_tested <- pts_tested + 1
-    which_point <- sample(1:n_initial, 1)
+  repeat {
+    which_points <- plausible_set[sample(1:nrow(plausible_set), 10*n_points, replace = TRUE),]
     if (dist == 'normal')
-      new_point <- rmvnorm(1, mean = unlist(checking_points[which_point,], use.names = F), sigma = sd)
+      proposal_points <- t(apply(which_points, 1, function(x) rmvnorm(1, mean = unlist(x, use.names = F), sigma = sd)))
     else {
-      new_point <- runifs(1, d, unlist(checking_points[which_point,], use.names = F), r = sd)
+      proposal_points <- t(apply(which_points, 1, function(x) runifs(1, length(plausible_set), unlist(x, use.names = F), r = sd)))
     }
-    new_point <- data.frame(matrix(new_point, nrow = 1)) %>% setNames(names(ranges))
-    if (!J(new_point) || !range_func(new_point, ranges)) next
+    proposal_restrict <- proposal_points[J(setNames(data.frame(proposal_points), names(ranges))) & range_func(proposal_points, ranges),]
     if (dist == 'normal') {
-      point_weight <- 1/n_initial * sum(apply(checking_points, 1, function(x) dmvnorm(new_point, mean = x, sigma = sd)))
-      choosing_prob <- min_w/point_weight
+      t_weights <- apply(proposal_restrict, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
+      p_weights <- min_w/t_weights
     }
-    else {
-      point_weight <- sum(apply(checking_points, 1, function(x) punifs(new_point, x, r = sd)))
-      choosing_prob <- 1/point_weight
-    }
-    pick <- runif(1)
-    if (pick <= choosing_prob) {
-      pts_added <- pts_added + 1
-      out_arr[pts_added,] <- unlist(new_point)
-    }
+    else
+      p_weights <- apply(proposal_restrict, 1, function(x) sum(apply(plausible_set, 1, function(y) punifs(x, y, r = sd))))
+    unifs <- runif(length(p_weights))
+    new_points <- if(is.null(new_points)) setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)) else rbind(new_points, setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)))
+    if (burn_in || nrow(new_points) >= n_points) break
   }
-  if (burn_in) return(nrow(checking_points) * n_points/pts_tested * pi^(d/2) * sd^d / gamma(d/2+1))
-  return(setNames(data.frame(out_arr), names(plausible_set)))
+  if (burn_in) return(nrow(plausible_set) * nrow(new_points)/(10*n_points) * pi^(length(ranges)) * sd^(length(ranges)) / gamma(length(ranges)/2 + 1))
+  return(new_points)
 }
 
 # Line sampling
-line_sample <- function(ems, points, z, ranges, n_lines = 20, ppl = 25, cutoff = 3) {
-  print("Performing line sampling...")
-  out_pts <- points
+line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 25, cutoff = 3) {
   range_func <- function(x, ranges) {
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
-  i <- 1
-  while (i <= n_lines) {
-    s_pts <- points[sample(nrow(points), 2),]
-    x1 <- s_pts[1,]
-    x2 <- s_pts[2,]
-    lambda <- seq(-1,1,length.out = ppl)
-    enough_pts <- FALSE
-    how_many_attempts <- 0
-    while(!enough_pts) {
-      how_many_attempts <- how_many_attempts + 1
-      line_points <- do.call('rbind', purrr::map(lambda, ~x1+.*(x1-x2)))
-      line_imps <- nth_implausible(ems, line_points, z)
-      pts_bool <- (line_imps <= cutoff & apply(line_points, 1, range_func, ranges))
-      rest_pts <- line_points[pts_bool,]
-      if (pts_bool[1] || pts_bool[length(pts_bool)]) lambda <- 1.1*lambda
-      else if (nrow(rest_pts) < 0.25*nrow(line_points)) lambda <- 0.9*lambda
-      else {
-        enough_pts <- TRUE
-        add_pts <- c()
-        for (j in which(pts_bool)) {
-          if (!(pts_bool[j-1] && pts_bool[j+1])) add_pts <- c(add_pts, j)
-        }
-        out_pts <- rbind(out_pts, line_points[add_pts,])
-      }
-      if(how_many_attempts > 10) break
-    }
-    if (how_many_attempts > 10) i <- i - 1
-    i <- i + 1
-  }
-  return(out_pts)
+  s_lines <- lapply(1:(10*nlines), function(x) {
+    pts <- sample_points[sample(nrow(sample_points), 2),]
+    pt_dist <- sqrt(sum(pts[1,] - pts[2,])^2)
+    return(list(p1 = pts[1,], p2 = pts[2,], dist = pt_dist))
+  })
+  top_points <- s_lines[order(purrr::map_dbl(s_lines, ~.$dist), decreasing = TRUE)][1:nlines]
+  selected_points <- array(0, dim = c(nlines * ppl, length(sample_points)))
+  sampled_points <- do.call('rbind', lapply(top_points, function(x) do.call('rbind', lapply(seq(-1, 1, length.out = 25), function(y) (x[[1]]+x[[2]])/2 + y*(x[[2]]-x[[1]])))))
+  imps <- nth_implausible(ems, sampled_points, z) < cutoff
+  in_rg <- apply(sampled_points, 1, range_func, ranges)
+  include_points <- purrr::map_lgl(seq_along(imps), function(x) {
+    if ((x %% ppl == 0 || x %% ppl == 1) && imps[x] && in_rg[x]) return(TRUE)
+    if (imps[x] && in_rg[x] && (!imps[x-1] || !imps[x+1])) return(TRUE)
+    return(FALSE)
+  })
+  return(rbind(sample_points, sampled_points[include_points,]))
 }

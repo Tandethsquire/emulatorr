@@ -73,7 +73,7 @@ full_wave <- function(input_data, validation_data, ranges, output_names, targets
   }
   if (length(trained_emulators) < length(output_names)/2) stop("Not enough outputs can be emulated.")
   combined_data <- rbind(input_data, validation_data)
-  em_order <- map_dbl(seq_along(trained_emulators), ~sum(trained_emulators[[.]]$implausibility(combined_data[,names(ranges)], targets[[.]], 3)))
+  em_order <- purrr::map_dbl(seq_along(trained_emulators), ~sum(trained_emulators[[.]]$implausibility(combined_data[,names(ranges)], targets[[.]], 3)))
   trained_emulators <- trained_emulators[order(em_order)]
   targets <- targets[order(em_order)]
   cat("Generating new sample points...\n")

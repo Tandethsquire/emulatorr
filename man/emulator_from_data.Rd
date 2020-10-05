@@ -93,7 +93,7 @@ The covariance between beta and u(x) is assumed to vanish.
  ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
  out_vars <- c('nS', 'nI', 'nR')
  ems_linear <- emulator_from_data(GillespieSIR, output_names = out_vars,
-  ranges = ranges)
+  ranges = ranges, quadratic = FALSE)
  ems_linear # Printout of the key information
 
  ems <- emulator_from_data(GillespieSIR, output_names = out_vars,
