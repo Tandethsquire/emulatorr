@@ -229,5 +229,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
     new_deltas <- purrr::map_dbl(new_deltas, ~min(1/3, .))
     return(emulator_from_data(input_data, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, new_deltas, quadratic = quadratic, beta.var = beta.var))
   }
-  return(setNames(out_ems, output_names))
+  for (i in 1:length(out_ems)) out_ems[[i]]$output_name <- output_names[[i]]
+  names(out_ems) <- output_names
+  return(out_ems)
 }

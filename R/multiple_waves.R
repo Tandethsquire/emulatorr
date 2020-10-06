@@ -121,6 +121,12 @@ simulator_plot <- function(wave_points, z, zero_in = TRUE, palette = NULL, wave_
 # }
 wave_variance <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]$ranges)[1:2], wave_numbers = 1:length(waves), n_points = 40, sd = FALSE) {
   concurrent_plots <- length(waves[wave_numbers])
+  for (i in 1:length(waves)) {
+    if (is.null(names(waves[[i]]))) {
+      if (length(waves[[i]]) == length(output_names)) names(waves[[i]]) <- output_names
+      else stop("One or more waves is missing an output emulation. Please specify emulator names explicitly.")
+    }
+  }
   if (length(plot_dirs) != 2) stop("Two input directions must be specified.")
   variable <- value <- NULL
   main_ranges <- waves[[1]][[output_names[1]]]$ranges

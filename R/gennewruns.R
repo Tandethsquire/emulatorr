@@ -100,7 +100,7 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)}
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, ...) {
   if (missing(plausible_set) || method == 'lhs') {
-    print("Performing LHS sampling with rejection...")
+    if (method != 'lhs') print("Performing LHS sampling with rejection...")
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
   }
   else points <- plausible_set
@@ -278,7 +278,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     if (burn_in || nrow(new_points) >= n_points) break
   }
   if (burn_in) return(nrow(plausible_set) * nrow(new_points)/(10*n_points) * pi^(length(ranges)) * sd^(length(ranges)) / gamma(length(ranges)/2 + 1))
-  return(new_points)
+  return(new_points[sample(nrow(new_points), n_points),])
 }
 
 # Line sampling

@@ -327,7 +327,7 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
       else {
         ems <- purrr::map(emulators, ~.$o_em$clone())
         for (j in 1:length(ems)) ems[[j]]$corr <- function(x, xp) exp_sq(x, xp, i*ems[[j]]$theta) ## This will only work if the correlation function WAS exp_sq!!
-        ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(setNames(cbind(eval_funcs(scale_input, emulators[[.]]$in_data, emulators[[.]]$ranges, FALSE), emulators[[.]]$out_data), c(names(emulators[[.]]$in_data), "out")), 'out'))
+        ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(setNames(data.frame(cbind(scale_input(emulators[[.]]$in_data, emulators[[.]]$ranges, FALSE), emulators[[.]]$out_data)), c(names(emulators[[.]]$ranges), "out")), 'out'))
       }
       imps <- nth_implausible(ems, on_grid, z)
       cutoff <- purrr::map_dbl(intervals, ~1-length(imps[imps <= .])/length(imps))

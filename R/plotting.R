@@ -269,6 +269,7 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #' is created, and maximum implausibility is calculated over this grid.
 #'
 #' @importFrom cowplot plot_grid get_legend
+#' @importFrom stats xtabs
 #' @import ggplot2
 #'
 #' @param ems The list of emulators
@@ -282,6 +283,17 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #' @export
 #'
 plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
+  get.count <- function(df, nbins, nms) {
+    out_df <- setNames(expand.grid(1:nbins, 1:nbins), nms)
+    out_df$Freq <- 0
+    for (i in 1:nbins) {
+      for (j in 1:nbins) {
+        out_df[out_df[,nms[1]] == i & out_df[,nms[2]] == j, 'Freq'] <- sum(apply(df, 1, function(x) x[nms[1]] == i && x[nms[2]] == j))
+      }
+    }
+    x_form <- as.formula(paste("Freq ~ ", nms[1], " + ", nms[2], sep = ""))
+    return(xtabs(x_form, data = out_df))
+  }
   ranges <- ems[[1]]$ranges
   dim_unif <- purrr::map(ranges, ~seq(.[[1]], .[[2]], length.out = ppd))
   grd <- expand.grid(dim_unif)
@@ -303,7 +315,8 @@ plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
     binpoints <- purrr::map(seq_along(x), ~seq(ranges[[x[.]]][1], ranges[[x[.]]][2], length.out = bins))
     intervals <- data.frame(do.call('cbind', purrr::map(seq_along(x), ~findInterval(df[,x[.]], binpoints[[.]])))) %>% setNames(x)
     tot_in_bin <- table(intervals)
-    tot_NROY <- table(data.frame(do.call('cbind', purrr::map(seq_along(x), ~findInterval(df_filtered[,x[.]], binpoints[[.]])))) %>% setNames(x))
+    NROY_class <- data.frame(do.call('cbind', purrr::map(seq_along(x), ~findInterval(df_filtered[,x[.]], binpoints[[.]])))) %>% setNames(x)
+    tot_NROY <- get.count(NROY_class, bins, x)
     props <- tot_NROY/tot_in_bin
     return(apply(intervals, 1, function(x) props[x[1], x[2]]))
   })
@@ -322,10 +335,12 @@ plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
                                                                                 paste0(purrr::map_chr(variable_combs, ~paste(., collapse="")), "op"),
                                                                                 paste0(purrr::map_chr(variable_combs, ~paste(., collapse="")), "min")))
   full_df <- data.frame(cbind(grd, full_df))
-  name_mat <- matrix(rep("", length(ranges)^2), nrow = length(ranges))
+  u_mat <- l_mat <- matrix(rep("", length(ranges)^2), nrow = length(ranges))
   comb_names <- purrr::map(variable_combs, paste, collapse = "")
-  name_mat[upper.tri(name_mat)] <- paste0(comb_names, "min")
-  name_mat[lower.tri(name_mat)] <- paste0(comb_names, "op")
+  u_mat[upper.tri(u_mat)] <- paste0(comb_names, "min")
+  l_mat[upper.tri(l_mat)] <- paste0(comb_names, "op")
+  l_mat <- t(l_mat)
+  name_mat <- matrix(paste(u_mat, l_mat, sep = ""), nrow = length(ranges))
   diag(name_mat) <- paste0(names(ranges), 'op')
   ifelse(cb, cols <- colourblind, cols <- redgreen)
   impbrks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15)
@@ -346,7 +361,7 @@ plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
         else {
           g <- g +
             geom_raster(aes(fill = full_df[,name_mat[x,y]]), interpolate = TRUE) +
-            scale_fill_gradient(breaks = seq(0,1,by=0.1), name = "Op. Depth")
+            scale_fill_gradient(low = 'black', high = 'white', breaks = seq(0, 1, by = 0.1), name = "Op. Depth")
         }
       }
       xlab <- ylab <- NULL
@@ -355,7 +370,7 @@ plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
       return(g + labs(x = xlab, y = ylab) + theme_minimal())
     })
   }), recursive = FALSE)
-  legend_list <- list(get_legend(plot_list[[length(ranges)]]), rep(NULL, length(ranges)-2), get_legend(plot_list[[length(ranges)+1]]))
+  legend_list <- list(get_legend(plot_list[[3]]), rep(NULL, length(ranges)-2), get_legend(plot_list[[10]]))
   for (i in 1:length(plot_list)) plot_list[[i]] <- plot_list[[i]] + theme(legend.position = 'none')
   return(suppressMessages(plot_grid(plot_grid(plotlist = plot_list), plot_grid(plotlist = legend_list, ncol = 1), rel_widths = c(1,0.1))))
 }

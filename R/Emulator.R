@@ -160,7 +160,7 @@ Emulator <- R6::R6Class(
       }
       new_o_em <- self$o_em$clone()
       new_o_em$u_sigma <- sigma
-      dat <- setNames(cbind(self$in_data, self$out_data), c(names(self$ranges), self$output_name))
+      dat <- setNames(data.frame(cbind(self$in_data, self$out_data)), c(names(self$ranges), self$output_name))
       return(new_o_em$adjust(dat, self$output_name))
     },
     print = function(...) {
