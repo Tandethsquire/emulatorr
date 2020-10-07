@@ -218,7 +218,7 @@ classification_error <- function(emulator, input_points, output_points, z, outpu
   return(which_misclass)
 }
 
-#' Validation Set Plotting
+#' Output Plotting
 #'
 #' Plots each of the emulator outputs against each input. For each input parameter, the
 #' emulator expectation is plotted for each output. These plots are presented as a set, to
@@ -237,8 +237,8 @@ classification_error <- function(emulator, input_points, output_points, z, outpu
 #' ems <- emulator_from_data(GillespieSIR, output_names = c('nS', 'nI', 'nR'),
 #'  ranges = list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
 #'  quadratic = TRUE)
-#' validation_plots(ems, GillespieValidation[,1:3], c('nS', 'nI', 'nR'))
-validation_plots <- function(emulators, input_points, output_names) {
+#' behaviour_plots(ems, GillespieValidation[,1:3], c('nS', 'nI', 'nR'))
+behaviour_plots <- function(emulators, input_points, output_names) {
   input_names <- names(emulators[[1]]$ranges)
   out_data <- setNames(as.data.frame(cbind(input_points, purrr::map(emulators, ~.x$get_exp(input_points)))), c(input_names, output_names))
   op <- par(mfrow = c(length(output_names), length(input_names)))
@@ -248,6 +248,63 @@ validation_plots <- function(emulators, input_points, output_names) {
     }
   }
   par(op)
+}
+
+#' Expectation and Variance Visualisation
+#'
+#' Plots the points of a wave as a pairs plot, coloured by emulator expectation (lower) and
+#' variance (upper) for each output.
+#'
+#' @import ggplot2
+#' @importFrom GGally ggpairs wrap getPlot putPlot ggmatrix_gtable
+#' @importFrom viridis scale_colour_viridis
+#' @importFrom cowplot plot_grid get_legend
+#'
+#' @param ems The list of emulators
+#' @param input_points The points on which to evaluate the emulators
+#' @param output_names The list of outputs
+#'
+#' @return NULL
+#'
+#' @examples
+#' ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))
+#' targets <- list(
+#'  list(val = 281, sigma = 10.43),
+#'  list(val = 30, sigma = 11.16),
+#'  list(val = 689, sigma = 14.32)
+#' )
+#' outputs <- c('nS','nI','nR')
+#' ems <- emulator_from_data(GillespieSIR, outputs, ranges, deltas = rep(0.1, 3))
+#' t_ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(GillespieSIR, outputs[[.]]))
+#' visualisation_plot(t_ems, GillespieSIR, outputs)
+#'
+#' @export
+visualisation_plot <- function(ems, input_points, output_names) {
+  inputs <- input_points[, names(ems[[1]]$ranges)]
+  exp_vals <- setNames(data.frame(do.call('cbind', purrr::map(ems, ~.$get_exp(input_points)))), output_names)
+  cov_vals <- setNames(data.frame(do.call('cbind', purrr::map(ems, ~.$get_cov(input_points)))), output_names)
+  limfun <- function(data, mapping) {
+    ggplot(data = data, mapping = mapping) +
+      geom_point(cex = 2)
+  }
+  for (i in 1:length(output_names)) {
+    temp_data <- setNames(data.frame(cbind(inputs, exp_vals[,output_names[i]], cov_vals[,output_names[i]])), c(names(inputs), 'exp', 'var'))
+    g <- ggpairs(temp_data, columns = 1:length(inputs),
+                 title = paste("Emulator Expectation and Variance:", output_names[i], sep = " "),
+                 lower = list(continuous = wrap(limfun), mapping = aes(colour = temp_data[,'exp'])),
+                 upper = list(continuous = wrap(limfun), mapping = aes(colour = temp_data[,'var'])),
+                 diag = 'blank', progress = FALSE) +
+      theme_minimal()
+    for (j in 1:length(inputs)) {
+      for (k in 1:length(inputs)) {
+        plt <- getPlot(g, j, k)
+        new_plt <- if(j < k) plt + scale_colour_viridis(option = 'plasma', name = "Var[f(x)]") else plt + scale_colour_viridis(option = 'magma', name = "E[f(x)]")
+        g <- putPlot(g, new_plt, j, k)
+      }
+    }
+    legends <- list(get_legend(g$plots[[2]]), rep(NULL, length(inputs)-2), get_legend(g$plots[[length(inputs)+1]]))
+    print(suppressMessages(plot_grid(plotlist = list(ggmatrix_gtable(g), plot_grid(plotlist = legends, ncol = 1)), rel_widths = c(1, 0.1))))
+  }
 }
 
 #' Space Removal

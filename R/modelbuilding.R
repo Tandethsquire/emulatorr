@@ -65,7 +65,7 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
 # Performs maximum likelihood estimation of the hyperparameters sigma and theta.
 # At present, only does single theta estimates (i.e. the same correlation length
 # is applied in all parameter directions)
-get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 200, delta = 0.1) {
+get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta = 0.1) {
   best_L <- -Inf
   best_sigma <- best_theta <- NULL
   hs <- apply(inputs, 1, function(y) purrr::map_dbl(h, purrr::exec, y))
