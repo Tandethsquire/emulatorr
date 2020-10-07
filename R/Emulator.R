@@ -54,9 +54,9 @@ Emulator <- R6::R6Class(
         self$out_data <- data[, !(names(data) %in% names(self$ranges))]
       }
       if (!is.null(self$in_data)) {
-        private$data_corrs <- minv(apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y)))/(self$u_sigma^2)
+        private$data_corrs <- minv(self$u_sigma^2 * apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y)))
         private$design_matrix <- t(apply(self$in_data, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x)))
-        private$u_var_modifier <- mmult(mmult(private$data_corrs, private$design_matrix), mmult(self$beta_sigma, t(private$design_matrix)))
+        private$u_var_modifier <- mmult(mmult(private$data_corrs, private$design_matrix), mmult(self$beta_sigma, mmult(t(private$design_matrix), private$data_corrs)))
         private$u_exp_modifier <- mmult(private$data_corrs, self$out_data - private$design_matrix %*% self$beta_mu)
         private$beta_u_cov_modifier <- mmult(mmult(self$beta_sigma, t(private$design_matrix)), private$data_corrs)
       }
@@ -147,9 +147,9 @@ Emulator <- R6::R6Class(
         new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + mmult(G, O) %*% this_data_out)
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
-                                u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
-                                bucov = self$beta_u_cov, ranges = self$ranges, data = data[, c(names(self$ranges),out_name)],
-                                delta = self$delta, original_em = self, out_name = out_name)
+                             u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
+                             bucov = self$beta_u_cov, ranges = self$ranges, data = data[, c(names(self$ranges),out_name)],
+                             delta = self$delta, original_em = self, out_name = out_name)
       return(new_em)
     },
     set_sigma = function(sigma) {
