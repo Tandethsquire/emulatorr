@@ -31,10 +31,12 @@
 #' )
 #' nth_implausible(ems, grid, targets, n = 2)
 nth_implausible <- function(emulators, x, z, n = 1, max_imp = 20) {
-  if (is.numeric(z))
-    output <- purrr::map(z, ~list(val=.x, sigma=0))
-  else
-    output <- z
-  implausible_list <- t(apply(matrix(unlist(purrr::map(seq_along(emulators), ~emulators[[.x]]$implausibility(x, z[[.x]]))), ncol = length(emulators)), 1, sort))
-  return(purrr::map_dbl(implausible_list[,length(implausible_list[1,])-n+1], ~min(.x, max_imp)))
+  if (n > length(emulators)) {
+    warning("Chosen n is greater than number of emulators. Setting to minimum implausibility.")
+    n <- length(emulators)
+  }
+  output <- if (is.numeric(z)) purrr::map(z, ~list(val = ., sigma = 0)) else z
+  implausible_list <- do.call('cbind', purrr::map((seq_along(emulators)), ~emulators[[.]]$implausibility(x, z[[.]])))
+  sorted <- apply(implausible_list, 1, function(x) -sort(-x, partial = 1:n)[n])
+  return(sorted)
 }
