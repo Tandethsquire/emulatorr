@@ -23,7 +23,8 @@ Imports:
   GGally,
   rlang,
   Rcpp,
-  RcppArmadillo
+  RcppArmadillo,
+  nlme
 LinkingTo: Rcpp, RcppArmadillo
 License: GPL-3
 Encoding: UTF-8

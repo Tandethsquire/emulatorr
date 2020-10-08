@@ -62,6 +62,28 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
   return(model)
 }
 
+#' Hyperparameter Estimation
+#'
+#' Does hyperparameter fitting using the nlme package
+#'
+#' @importFrom nlme gls corGaus
+#' @importFrom stats coef formula
+#'
+#' @param inputs The data to fit to
+#' @param model The pre-fitted model (determined using \code{step})
+#'
+#' @return A list of hyperparameter values.
+hyperparam_fit <- function(inputs, model) {
+  model_form <- formula(model$terms)
+  gls_model <- gls(data = inputs, model = model_form, correlation = corGaus(nugget = TRUE))
+  beta_coeffs <- c(coef(gls_model), use.names = FALSE)
+  beta_var <- gls_model$varBeta
+  u_sigma <- gls_model$sigma
+  theta <- coef(gls_model$modelStruct)[[1]]
+  delta <- coef(gls_model$modelStruct)[[2]]
+  return(list(beta = list(mu = beta_coeffs, var = beta_var), sigma = u_sigma, theta = theta, delta = delta))
+}
+
 # Performs maximum likelihood estimation of the hyperparameters sigma and theta.
 # At present, only does single theta estimates (i.e. the same correlation length
 # is applied in all parameter directions)
@@ -207,11 +229,18 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if (missing(deltas)) model_deltas <- rep(0.1, length(output_names))
   else model_deltas <- deltas
   if (missing(u) || is.null(u[[1]]$sigma) || is.null(u[[1]]$mu) || is.null(u[[1]]$corr)) {
-    residuals <- purrr::map(seq_along(output_names), ~data[,output_names[[.]]] - apply(sweep(t(eval_funcs(model_basis_funcs[[.]], data[,names(ranges)])), 2, model_beta_mus[[.]], "*"), 1, sum))
-    ifelse(quadratic, theta_range <- c(0.2, 1), theta_range <- c(0.2, 2))
-    specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
-    model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
-    model_u_mus <- purrr::map(output_names, ~function(x) 0)
+    estimate_method <- 'nl'
+    if (estimate_method == "my") {
+      residuals <- purrr::map(models, ~.$residuals)
+      ifelse(quadratic, theta_range <- c(0.2, 1), theta_range <- c(0.2, 2))
+      specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
+    }
+    else {
+      specs <- purrr::map(seq_along(output_names), ~hyperparam_fit(data[,c(input_names, output_names[[.]])], models[[.]]))
+      model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
+      model_u_mus <- purrr::map(output_names, ~function(x) 0)
+      deltas <- purrr::map_dbl(specs, ~.$delta)
+    }
     if (missing(c_lengths)) c_lengths <- purrr::map(specs, ~as.numeric(.$theta))
     model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, c_lengths[[.]]))
   }
