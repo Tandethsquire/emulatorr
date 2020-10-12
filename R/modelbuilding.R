@@ -72,6 +72,9 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
 #' @param inputs The data to fit to
 #' @param model The pre-fitted model (determined using \code{step})
 #'
+#' @keywords internal
+#' @noRd
+#'
 #' @return A list of hyperparameter values.
 hyperparam_fit <- function(inputs, model) {
   model_form <- formula(model$terms)

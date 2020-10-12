@@ -87,6 +87,10 @@ random, and a number of points are sampled uniformly along the line connecting t
 The sampled points are tested for implausibility, and (provided more than 50% but not all
 of the points are non-implausible) the most separated of the points replace the two initial
 points.
+
+These methods will not necessarily work if the target space is very small, or it may miss
+parts of the target space if it is disconnected. For such target spaces, consider using the
+much more computationally intensive \code{\link{IDEMC}}.
 }
 \examples{
 ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))

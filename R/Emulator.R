@@ -164,7 +164,7 @@ Emulator <- R6::R6Class(
       return(new_o_em$adjust(dat, self$output_name))
     },
     print = function(...) {
-      cat("Parameters and ranges: ", paste(names(self$ranges), paste0(self$ranges), sep = ": ", collapse= "; "), "\n")
+      cat("Parameters and ranges: ", paste(names(self$ranges), paste0(purrr::map(self$ranges, round, 4)), sep = ": ", collapse= "; "), "\n")
       cat("Specifications: \n")
       if (is.null(self$model))
         cat("\t Basis functions: ", paste0(names(self$o_em$model$coefficients), collapse="; "), "\n")

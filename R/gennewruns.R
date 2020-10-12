@@ -60,6 +60,10 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' of the points are non-implausible) the most separated of the points replace the two initial
 #' points.
 #'
+#' These methods will not necessarily work if the target space is very small, or it may miss
+#' parts of the target space if it is disconnected. For such target spaces, consider using the
+#' much more computationally intensive \code{\link{IDEMC}}.
+#'
 #' @importFrom mvtnorm dmvnorm rmvnorm
 #' @importFrom stats setNames runif dist
 #'
