@@ -79,6 +79,7 @@ validation_diagnostics <- function(emulators, validation_points, output_names, w
 #' Emulator Standard Errors
 #'
 #' Finds and plots emulator standard errors.
+#'
 #' For an emulator of a simulator function \code{f(x)}, and a validation data set \code{X},
 #' finds the standard errors in the form \code{(f(x)-E[f(x)])/sqrt(Var[f(x)])},
 #' where \code{E[f(x)]} is the emulator expectation, and \code{Var[f(x)]} is the emulator variance,
@@ -116,6 +117,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #' Emulator Diagnostic Plot
 #'
 #' Produces a diagnostic plot of emulator output.
+#'
 #' The emulator output \code{E[f(x)]} is plotted against the simulator output \code{f(x)},
 #' with error bars given by the emulator standard deviation \code{sqrt(3*Var[f(x)])},
 #' for each point \code{x} in a validation set \code{X}. Points whose emulator expectation
@@ -170,6 +172,7 @@ comparison_diagnostics <- function(emulator, input_points, output_points, output
 #' Classification diagnostics
 #'
 #' Checks for emulator misclassifications.
+#'
 #' Both the emulator implausibility and the simulator implausibility are computed, and
 #' plotted against one another. Points for which the emulator implausibility is outside the desired
 #' cut-off but for which the simulator implausibility is not are misclassification points,
@@ -317,6 +320,17 @@ visualisation_plot <- function(ems, input_points, output_names) {
 #' will give a more accurate reflection of removed space, at high computational cost. For the
 #' purpose of quick diagnostics, \code{n_points = 5} is acceptable.
 #'
+#' The parameter \code{modified} can take three options: 'disc' (default) corresponding to
+#' model discrepancy, 'var' corresponding to emulator variance, or 'corr' corresponding to
+#' correlation length. In the first case, the implausibilities are recalculated with the
+#' original emulators; in the latter two cases, the emulators are re-trained with the new
+#' specifications. For this reason, one should expect the 'var' and 'corr' options to be
+#' more computationally intensive.
+#'
+#' The returned output is a \code{data.frame} consisting of the percentage of space
+#' removed at each cutoff value, for each modifed value of the varied parameter. The main
+#' result, however, is the accompanying plot of this information.
+#'
 #' @import ggplot2
 #' @importFrom stats setNames
 #' @importFrom viridis scale_colour_viridis
@@ -328,7 +342,7 @@ visualisation_plot <- function(ems, input_points, output_names) {
 #' @param n_points The number of points in each dimension of the grid.
 #' @param u_mod The percentage differences in structural discrepancy to examine.
 #' @param intervals The set of implausibility cut-offs to consider.
-#' @param modified What should be changed: model discrepancy (disc) or emulator variance (var)?
+#' @param modified What parameter should be varied in the analysis?
 #'
 #' @return A list of two \code{data.frame}s, one for removed space and one for misclassifications.
 #' @export

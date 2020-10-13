@@ -2,7 +2,7 @@
 % Please edit documentation in R/modelbuilding.R
 \name{get_coefficient_model}
 \alias{get_coefficient_model}
-\title{Linear Model Generation}
+\title{Model Generation}
 \usage{
 get_coefficient_model(data, ranges, output_name, add = FALSE, order = 2)
 }
@@ -21,7 +21,9 @@ get_coefficient_model(data, ranges, output_name, add = FALSE, order = 2)
 The fitted model
 }
 \description{
-Creates a best fit of coefficients for a given data set..
+Creates a best fit of coefficients for a given data set.
+}
+\details{
 There are two ways to generate the model; either start with all possible terms
 (including cross-terms) up to order \code{n}, and then stepwise remove them;
 or start with an intercept and stepwise add terms up to order \code{n}, only

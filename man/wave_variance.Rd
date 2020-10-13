@@ -27,7 +27,7 @@ wave_variance(
 \item{sd}{Should the standard deviation be plotted instead of the variance? Default: FALSE}
 }
 \value{
-A list of data.frames, each corresponding to a given output over waves.
+A list of \code{data.frames}, each corresponding to a given output over waves.
 }
 \description{
 Plots the emulator variance for each output across emulator waves.

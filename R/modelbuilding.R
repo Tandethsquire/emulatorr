@@ -1,6 +1,7 @@
-#' Linear Model Generation
+#' Model Generation
 #'
-#' Creates a best fit of coefficients for a given data set..
+#' Creates a best fit of coefficients for a given data set.
+#'
 #' There are two ways to generate the model; either start with all possible terms
 #' (including cross-terms) up to order \code{n}, and then stepwise remove them;
 #' or start with an intercept and stepwise add terms up to order \code{n}, only

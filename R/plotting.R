@@ -1,8 +1,11 @@
 #' Plot Emulator Outputs
 #'
-#' A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
+#' A wrapper for plotting emulator outputs, for two dimensions.
+#'
+#' If the input space is greater
 #' than 2-dimensional, the mid-range values are chosen for any input beyond the plotted two,
 #' unless specific slice values are chosen (see below).
+#'
 #' If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
 #' or \code{\link{full_wave}}), then the result is a kx3 grid of plots. If a single emulator is
 #' given, then a single plot is returned.
@@ -202,6 +205,7 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
 #'
 #' Plots emulator outputs across a set of points, with the corresponding observations
 #' overlaid (with the appropriate uncertainty).
+#'
 #' If no points are provided, then \code{npoints} points are uniformly sampled from the
 #' input region. Else the provided points are used - for example, if a non-implausible
 #' space is known.
@@ -275,14 +279,14 @@ output_plot <- function(emulators, targets, points = NULL, npoints = 1000) {
 #' @param ems The list of emulators
 #' @param targets The corresponding list of targets for the emulators
 #' @param ppd The number of points to sample per input dimension. The granularity should be
-#' carefully considered for large parameter spaces. Default: 40
+#' carefully considered for large parameter spaces. Default: 20
 #' @param cb Should a colourblind-friendly palette be used for implausibility? Default: FALSE
 #'
 #' @return A ggplot object
 #'
 #' @export
 #'
-plot_lattice <- function(ems, targets, ppd = 40, cb = FALSE) {
+plot_lattice <- function(ems, targets, ppd = 20, cb = FALSE) {
   get.count <- function(df, nbins, nms) {
     out_df <- setNames(expand.grid(1:nbins, 1:nbins), nms)
     out_df$Freq <- 0

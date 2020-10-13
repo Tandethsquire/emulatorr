@@ -36,14 +36,17 @@ emulator_plot(
 A ggplot object.
 }
 \description{
-A wrapper for plotting emulator outputs, for two dimensions. If the input space is greater
+A wrapper for plotting emulator outputs, for two dimensions.
+}
+\details{
+If the input space is greater
 than 2-dimensional, the mid-range values are chosen for any input beyond the plotted two,
 unless specific slice values are chosen (see below).
+
 If a list of k emulators are given (e.g. those derived from \code{\link{emulator_from_data}}
 or \code{\link{full_wave}}), then the result is a kx3 grid of plots. If a single emulator is
 given, then a single plot is returned.
-}
-\details{
+
 Options for plotting variables are passed via the \code{var} parameter: current choices are
 \code{'exp'} (Expectation), \code{'var'} (Variance), \code{'imp'} (Implausibility), and
 \code{'maximp'} (n-th maximum Implausibility). If either of the implausibilities are desired,

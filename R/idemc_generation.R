@@ -193,7 +193,9 @@ IDEMC_step <- function(points, imp_func, imp_levels, all_specs, s, pm = 0.9, M =
 
 #' IDEMC Point Generation
 #'
-#' Performs Implausibility-Driven Evolutionary Monte Carlo. Given a set of initial points
+#' Performs Implausibility-Driven Evolutionary Monte Carlo.
+#'
+#' Given a set of initial points
 #' (preferably sampled across the full space), the implausibility ladder is set up via a burn-in
 #' phase, before a full set of points is generated. This is a very compuationally intensive
 #' procedure for generating points, and should be used only when the target space is expected
@@ -222,7 +224,7 @@ IDEMC_step <- function(points, imp_func, imp_levels, all_specs, s, pm = 0.9, M =
 #'
 #' @return A list of data.frames, corresponding to the points generated at each rung
 #'
-#' @seealso [generate_new_runs()] for other point generation mechanisms.
+#' @seealso \code{\link{generate_new_runs}} for other point generation mechanisms.
 #'
 #' @references
 #' Vernon, I. & Williamson, D. (2013) Efficient uniform designs for multi-wave computer experiments. arXiv:1309.3520

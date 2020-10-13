@@ -40,22 +40,24 @@ A list of base emulators, trained emulators for this wave, new sample points, an
 }
 \description{
 Performs a full wave of emulation and history matching from data.
+}
+\details{
 Given simulator runs (split into training and validation data), the target values,
 and the identification of outputs to emulate, the function generates trained emulators,
 tests them with emulator diagnostics (removing any emulators whose outputs cannot be
 well emulated from the data), and finally generates a new sample of points to be entered
 into the simulator.
-}
-\details{
+
 Necessary parameters to be passed are the input data, the validation data, the ranges of
 inputs, and the observation values for each output. If any specifications are to be passed
 directly to the emulator construction, then they should be given as additional parameters
 (see \code{\link{emulator_from_data}} to see the options).
 
-If the wave to be emulated is the first wave, then a set of preliminary ('wave 0') emulators
-are fitted to the data. The proper set of emulators are then trained using Bayes Linear
-adjustment. On subsequent waves, the preliminary emulators should be passed to the function
-as the argument \code{previous_wave}.
+A set of preliminary ('wave 0') emulators are fitted to the data before being used to train
+a new set of emulators on the data, using Bayes linear adjustment. The preliminary emulators
+are provided as part of the output of the function to indicate the prior specifications,
+should any by-hand modification be needed (for example, if any of the outputs could not
+be adequately fitted).
 
 The output consists of a list of four items: the preliminary emulators \code{base_emulators},
 the trained emulators \code{emulators}, the next points to be put into the simulator

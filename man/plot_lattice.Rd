@@ -4,7 +4,7 @@
 \alias{plot_lattice}
 \title{Create a Plot Lattice}
 \usage{
-plot_lattice(ems, targets, ppd = 40, cb = FALSE)
+plot_lattice(ems, targets, ppd = 20, cb = FALSE)
 }
 \arguments{
 \item{ems}{The list of emulators}
@@ -12,7 +12,7 @@ plot_lattice(ems, targets, ppd = 40, cb = FALSE)
 \item{targets}{The corresponding list of targets for the emulators}
 
 \item{ppd}{The number of points to sample per input dimension. The granularity should be
-carefully considered for large parameter spaces. Default: 40}
+carefully considered for large parameter spaces. Default: 20}
 
 \item{cb}{Should a colourblind-friendly palette be used for implausibility? Default: FALSE}
 }

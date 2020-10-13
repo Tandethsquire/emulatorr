@@ -27,7 +27,7 @@ space_removed(
 
 \item{intervals}{The set of implausibility cut-offs to consider.}
 
-\item{modified}{What should be changed: model discrepancy (disc) or emulator variance (var)?}
+\item{modified}{What parameter should be varied in the analysis?}
 }
 \value{
 A list of two \code{data.frame}s, one for removed space and one for misclassifications.
@@ -41,6 +41,17 @@ The reduction in space is found by evaluating over a p^d regular grid, where p i
 \code{n_points} and d is the dimension of the input space. Larger values of \code{n_points}
 will give a more accurate reflection of removed space, at high computational cost. For the
 purpose of quick diagnostics, \code{n_points = 5} is acceptable.
+
+The parameter \code{modified} can take three options: 'disc' (default) corresponding to
+model discrepancy, 'var' corresponding to emulator variance, or 'corr' corresponding to
+correlation length. In the first case, the implausibilities are recalculated with the
+original emulators; in the latter two cases, the emulators are re-trained with the new
+specifications. For this reason, one should expect the 'var' and 'corr' options to be
+more computationally intensive.
+
+The returned output is a \code{data.frame} consisting of the percentage of space
+removed at each cutoff value, for each modifed value of the varied parameter. The main
+result, however, is the accompanying plot of this information.
 }
 \examples{
 ranges <- list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05))

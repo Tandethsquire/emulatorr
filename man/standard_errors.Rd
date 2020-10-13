@@ -31,6 +31,8 @@ A list of standard errors.
 }
 \description{
 Finds and plots emulator standard errors.
+}
+\details{
 For an emulator of a simulator function \code{f(x)}, and a validation data set \code{X},
 finds the standard errors in the form \code{(f(x)-E[f(x)])/sqrt(Var[f(x)])},
 where \code{E[f(x)]} is the emulator expectation, and \code{Var[f(x)]} is the emulator variance,

@@ -75,7 +75,7 @@ simulator_plot <- function(wave_points, z, zero_in = TRUE, palette = NULL, wave_
 #' @param n_points The number of grid points per plotting dimension. Default: 20
 #' @param sd Should the standard deviation be plotted instead of the variance? Default: FALSE
 #'
-#' @return A list of data.frames, each corresponding to a given output over waves.
+#' @return A list of \code{data.frames}, each corresponding to a given output over waves.
 #'
 #' @export
 #'

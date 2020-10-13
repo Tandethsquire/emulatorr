@@ -37,6 +37,8 @@ The set of points misclassified by the emulator.
 }
 \description{
 Checks for emulator misclassifications.
+}
+\details{
 Both the emulator implausibility and the simulator implausibility are computed, and
 plotted against one another. Points for which the emulator implausibility is outside the desired
 cut-off but for which the simulator implausibility is not are misclassification points,

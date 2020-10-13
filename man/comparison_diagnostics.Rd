@@ -34,6 +34,8 @@ A list of points whose emulator value is outside the allowed standard deviation.
 }
 \description{
 Produces a diagnostic plot of emulator output.
+}
+\details{
 The emulator output \code{E[f(x)]} is plotted against the simulator output \code{f(x)},
 with error bars given by the emulator standard deviation \code{sqrt(3*Var[f(x)])},
 for each point \code{x} in a validation set \code{X}. Points whose emulator expectation

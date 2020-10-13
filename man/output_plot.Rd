@@ -21,6 +21,8 @@ A ggplot object.
 \description{
 Plots emulator outputs across a set of points, with the corresponding observations
 overlaid (with the appropriate uncertainty).
+}
+\details{
 If no points are provided, then \code{npoints} points are uniformly sampled from the
 input region. Else the provided points are used - for example, if a non-implausible
 space is known.
