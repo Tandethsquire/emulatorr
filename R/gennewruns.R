@@ -124,7 +124,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
       sd <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
     else
       sd <- NULL
-    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, ...)
+    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, ...)
   }
   else if (method == 'slice') {
     print("Performing slice sampling...")
@@ -237,11 +237,13 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     apply(dat, 1, function(x) all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2])))
   }
   if (!burn_in) {
-    if (dist == 'normal') {
-      lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
-      sd <- diag((lengths/6)^2, length(lengths))
+    if (is.null(sd)) {
+      if (dist == 'normal') {
+        lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
+        sd <- diag((lengths/6)^2, length(lengths))
+      }
+      else sd = mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
     }
-    else sd = mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
   }
   if (is.null(sd)) {
     if (dist == 'sphere') {
@@ -272,7 +274,9 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     else {
       proposal_points <- t(apply(which_points, 1, function(x) runifs(1, length(plausible_set), unlist(x, use.names = F), r = sd)))
     }
-    proposal_restrict <- proposal_points[J(setNames(data.frame(proposal_points), names(ranges))) & range_func(proposal_points, ranges),]
+    p_rest1 <- proposal_points[range_func(setNames(data.frame(proposal_points), names(ranges)), ranges), ]
+    proposal_restrict <- p_rest1[J(setNames(data.frame(p_rest1), names(ranges))),]
+    if (nrow(proposal_restrict) == 0) next
     if (dist == 'normal') {
       t_weights <- apply(proposal_restrict, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
       p_weights <- min_w/t_weights

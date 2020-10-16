@@ -252,9 +252,12 @@ IDEMC_step <- function(points, imp_func, imp_levels, all_specs, s, pm = 0.9, M =
 #'
 IDEMC <- function(xsamp, ems, targets, s, sn, p, imp = 3, all_specs = NULL, imps = NULL, ...) {
   test_i <- max(nth_implausible(ems, xsamp, targets, max_imp = Inf))
+  range_func <- function(x, ranges) {
+    all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
+  }
   check_imp <- function(x, imp) {
     for (i in 1:length(ems)) if (!ems[[i]]$implausibility(x, targets[[i]], imp)) return(FALSE)
-    return(TRUE)
+    return(range_func(x, ems[[1]]$ranges))
   }
   if (is.null(all_specs) || is.null(imps)) {
     imps <- c(test_i)

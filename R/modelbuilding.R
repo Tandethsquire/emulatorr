@@ -32,12 +32,14 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
     )
   }
   else {
+    start_model <- get_coefficient_model(data = data, ranges = ranges, output_name = output_name, add = add, order = 1)
+    a_vars <- names(start_model$coefficients)[-1]
     upper_form <- as.formula(
       paste(
         output_name, " ~ ",
         paste(
-          paste("(", paste(names(ranges), collapse = "+"), ")^", order, sep = ""),
-          paste0("I(", names(ranges), paste(")^", order, sep = ""), collapse = "+"),
+          paste("(", paste(a_vars, collapse = "+"), ")^", order, sep = ""),
+          paste0("I(", a_vars, paste(")^", order, sep = ""), collapse = "+"),
           sep = "+"
         ),
         sep = ""
