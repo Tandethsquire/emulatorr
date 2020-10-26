@@ -181,9 +181,9 @@ IDEMC_step <- function(points, imp_func, imp_levels, all_specs, s, pm = 0.9, M =
       }
     }
     else
-      for (i in 1:floor((nrow(points)+1)/2)) points < crossover(points, imp_func, imp_levels)
+      for (i in 1:floor((nrow(points)+1)/2)) points <- crossover(points, imp_func, imp_levels)
     for (i in 1:(nrow(points)+1)) points <- exchange(points, imp_func, imp_levels)
-    if (!all(points[nrow(points),] == start_points[nrow(points),])) {
+    if (!all(points[nrow(points),] == start_points[nrow(start_points),])) {
       for (i in 1:length(total_set)) total_set[[i]] <- do.call('rbind', list(total_set[[i]], points[i,]))
       start_points <- points
     }

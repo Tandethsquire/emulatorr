@@ -242,14 +242,14 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
         lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
         sd <- diag((lengths/6)^2, length(lengths))
       }
-      else sd = mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
+      else sd = purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/8
     }
   }
   if (is.null(sd)) {
     if (dist == 'sphere') {
       print("Performing burn-in..")
       upper_n_p <- 500
-      sd_temp <- mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
+      sd_temp <- mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/4
       sd_int <- sd_temp/10
       old_vol <- importance_sample(ems, ranges, max(upper_n_p, n_points), z, sd = sd_temp, plausible_set = plausible_set, burn_in = TRUE)
       new_vol <- old_vol

@@ -17,34 +17,52 @@
 #' @param output_name A string corresponding to the output to be modelled
 #' @param add Should we perform stepwise add or stepwise delete? Default: \code{FALSE}
 #' @param order To what order terms should the model be fitted? Default: 2 (quadratic)
+#' @param u_form An upper form for the model fit. Default \code{NULL}; used internally.
 #'
 #' @return The fitted model
 #' @export
-get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order = 2) {
+get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order = 2, u_form = NULL) {
   lower_form <- as.formula(paste(output_name, "1", sep = " ~ "))
-  if (order == 1) {
-    upper_form <- as.formula(
-      paste(
-        output_name, " ~ ",
-        paste0(names(ranges), collapse = "+"),
-        sep = ""
+  if (is.null(u_form)) {
+    if (order == 1) {
+      upper_form <- as.formula(
+        paste(
+          output_name, " ~ ",
+          paste0(names(ranges), collapse = "+"),
+          sep = ""
+        )
       )
-    )
+    }
+    else {
+      upper_form <- as.formula(
+        paste(
+          output_name, "~",
+          paste(
+            paste0(names(ranges), collapse = "+"),
+            paste0("I(", names(ranges), "^2)", collapse = "+"),
+            sep = "+"),
+          sep = ""
+        )
+      )
+      start_model <- get_coefficient_model(data = data, ranges = ranges, output_name = output_name, add = add, order = order, u_form = upper_form)
+      a_vars <- names(start_model$coefficients)[-1]
+      in_model <- purrr::map_lgl(names(ranges), ~any(grepl(., a_vars)))
+      a_vars <- names(ranges)[in_model]
+      upper_form <- as.formula(
+        paste(
+          output_name, " ~ ",
+          paste(
+            paste("(", paste(a_vars, collapse = "+"), ")^", order, sep = ""),
+            paste0("I(", a_vars, paste(")^", order, sep = ""), collapse = "+"),
+            sep = "+"
+          ),
+          sep = ""
+        )
+      )
+    }
   }
   else {
-    start_model <- get_coefficient_model(data = data, ranges = ranges, output_name = output_name, add = add, order = 1)
-    a_vars <- names(start_model$coefficients)[-1]
-    upper_form <- as.formula(
-      paste(
-        output_name, " ~ ",
-        paste(
-          paste("(", paste(a_vars, collapse = "+"), ")^", order, sep = ""),
-          paste0("I(", a_vars, paste(")^", order, sep = ""), collapse = "+"),
-          sep = "+"
-        ),
-        sep = ""
-      )
-    )
+    upper_form <- u_form
   }
   if (!add & (choose(length(ranges) + order, length(ranges)) > nrow(data))) {
     warning("Maximum number of regression terms is greater than the degrees of freedom in the data. Changing to add = TRUE.")

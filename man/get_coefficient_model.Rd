@@ -4,7 +4,14 @@
 \alias{get_coefficient_model}
 \title{Model Generation}
 \usage{
-get_coefficient_model(data, ranges, output_name, add = FALSE, order = 2)
+get_coefficient_model(
+  data,
+  ranges,
+  output_name,
+  add = FALSE,
+  order = 2,
+  u_form = NULL
+)
 }
 \arguments{
 \item{data}{A \code{data.frame} containing the input and output values}
@@ -16,6 +23,8 @@ get_coefficient_model(data, ranges, output_name, add = FALSE, order = 2)
 \item{add}{Should we perform stepwise add or stepwise delete? Default: \code{FALSE}}
 
 \item{order}{To what order terms should the model be fitted? Default: 2 (quadratic)}
+
+\item{u_form}{An upper form for the model fit. Default \code{NULL}; used internally.}
 }
 \value{
 The fitted model

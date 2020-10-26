@@ -1,0 +1,11 @@
+Changelog (Development Branch)
+
+26/10/2020 - v6.0.2. Importance sampling samples on ellipses rather than spheres, to fix the cases where some parameter ranges are vastly smaller/larger than others; bug fix to idemc generation; model building now fits a quadratic surface without interaction terms to determine the active variables.
+
+16/10/2020 - v6.0.1a. Fixes to the working of generate_new_runs for speed; idemc generation now takes into account if a proposed point is outside the parameter ranges; model building determines active variables by fitting a linear surface to the data before proceeding with a full quadratic fit.
+
+13/10/2020 - v6.0.1. Multiple changes to documentation for readability and to reflect new functionality. Changed some default behaviours (for example, plot_lattice) for computational efficiency.
+
+12/10/2020 - v0.6.0. Added Implausibility-Driven Evolutionary Monte Carlo for point generation. Tidied up some documentation (including removing some internal documentation from man pages).
+
+08/10/2020 - <v0.6.0. Changed the way that hyperparameters are estimated - uses the nlme package to estimate correlation lengths. Fits a surface to the residuals from the linear model, and the sigma and theta generated from this form the specifications for the correlation structure.
