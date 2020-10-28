@@ -15,5 +15,5 @@
 #' exp_sq(c(1,2,-1),c(1.5,2.9,-0.7),0.2)
 #' #> 3.266131e-13
 exp_sq <- function(x, xp, theta) {
-  return(exp(-sum((x-xp)^2)/theta^2))
+  return(exp(-sum((x-xp)^2/theta^2)))
 }

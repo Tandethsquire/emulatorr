@@ -99,13 +99,13 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
 #' @return A list of hyperparameter values.
 hyperparam_fit <- function(inputs, model) {
   model_form <- formula(model$terms)
-  gls_model <- gls(data = inputs, model = model_form, correlation = corGaus(nugget = TRUE))
+  gls_model <- gls(data = inputs, model = model_form, correlation = corGaus(c(0.625, 0.1), nugget = TRUE))
   beta_coeffs <- c(coef(gls_model), use.names = FALSE)
   beta_var <- gls_model$varBeta
   u_sigma <- gls_model$sigma
-  theta <- coef(gls_model$modelStruct)[[1]]
-  delta <- coef(gls_model$modelStruct)[[2]]
-  return(list(beta = list(mu = beta_coeffs, var = beta_var), sigma = u_sigma, theta = theta, delta = delta))
+  theta <- coef(gls_model$modelStruct, unconstrained = FALSE)[[1]]
+  delta <- coef(gls_model$modelStruct, unconstrained = FALSE)[[2]]
+  return(list(beta = list(mu = beta_coeffs, var = beta_var), sigma = u_sigma, theta = theta, delta = max(0.01,delta)))
 }
 
 # Performs maximum likelihood estimation of the hyperparameters sigma and theta.
@@ -263,7 +263,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
       specs <- purrr::map(seq_along(output_names), ~hyperparam_fit(data[,c(input_names, output_names[[.]])], models[[.]]))
       model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
       model_u_mus <- purrr::map(output_names, ~function(x) 0)
-      deltas <- purrr::map_dbl(specs, ~.$delta)
+      model_deltas <- purrr::map_dbl(specs, ~.$delta)
     }
     if (missing(c_lengths)) c_lengths <- purrr::map(specs, ~as.numeric(.$theta))
     model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, c_lengths[[.]]))

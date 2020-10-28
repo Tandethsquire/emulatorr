@@ -1,5 +1,7 @@
 Changelog (Development Branch)
 
+28/10/2020 - v6.0.2a. A couple of bug fixes: modified exp_sq so that it will accept non-isotropic correlation lengths; fixed a bug in hyperparam_fit that was giving transformed estimates of correlation length and nugget term.
+
 26/10/2020 - v6.0.2. Importance sampling samples on ellipses rather than spheres, to fix the cases where some parameter ranges are vastly smaller/larger than others; bug fix to idemc generation; model building now fits a quadratic surface without interaction terms to determine the active variables.
 
 16/10/2020 - v6.0.1a. Fixes to the working of generate_new_runs for speed; idemc generation now takes into account if a proposed point is outside the parameter ranges; model building determines active variables by fitting a linear surface to the data before proceeding with a full quadratic fit.
