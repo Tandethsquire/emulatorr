@@ -396,7 +396,7 @@ plot_lattice <- function(ems, targets, ppd = 20, cb = FALSE) {
 #'
 #' @return A ggplot object.
 #' @export
-wave_points <- function(pts_list, in_names) {
+wave_points <- function(pts_list, in_names, surround = FALSE) {
   wave <- NULL
   out_lst <- list()
   for (i in 0:(length(pts_list)-1))
@@ -406,9 +406,10 @@ wave_points <- function(pts_list, in_names) {
   tot_dat <- do.call('rbind', out_lst)
   tot_dat$wave <- as.factor(tot_dat$wave)
   wrapfun <- function(data, mapping) {
-    ggplot(data = data, mapping = mapping) +
-      geom_point(cex = 1.5) +
-      geom_point(cex = 1.5, pch = 1, colour = 'black')
+    g <- ggplot(data = data, mapping = mapping) +
+      geom_point(cex = 1.5)
+    if (surround)
+      g <- geom_point(cex = 1.5, pch = 1, colour = 'black')
   }
   pal <- viridis::viridis(length(pts_list), option = 'D', direction = -1)
   ggpairs(tot_dat, columns = 1:length(in_names), aes(colour = wave),

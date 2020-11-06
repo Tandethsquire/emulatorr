@@ -135,13 +135,13 @@ Emulator <- R6::R6Class(
     adjust = function(data, out_name) {
       this_data_in <- data.matrix(scale_input(data[,names(self$ranges)], self$ranges))
       this_data_out <- data[,out_name]
-      G <- apply(this_data_in, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x))
-      O <- minv(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x)))
       if (all(eigen(self$beta_sigma)$values == 0)) {
         new_beta_var = self$beta_sigma
         new_beta_exp <- self$beta_mu
       }
       else {
+        G <- apply(this_data_in, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x))
+        O <- minv(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x)))
         siginv <- minv(self$beta_sigma)
         new_beta_var <- minv(mmult(G, mmult(O, t(G))) + siginv)
         new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + mmult(G, O) %*% this_data_out)

@@ -9,7 +9,7 @@ runifs <- function(n, d, c = rep(0, d), r = 1) {
   return(t(apply(swept, 1, function(x) x*r + c)))
 }
 punifs <- function(x, c = rep(0, length(x)), r = 1) {
-  return(ifelse(sum((x-c)^2) <= r^2, 1, 0))
+  return(ifelse(sum((x-c)^2 / r^2) <= 1, 1, 0))
 }
 
 
@@ -106,12 +106,12 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)}
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, ...) {
   if (missing(plausible_set) || method == 'lhs') {
-    if (method != 'lhs') print("Performing LHS sampling with rejection...")
+    if (method != 'lhs') print("Performing LH sampling with rejection...")
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
   }
   else points <- plausible_set
   if (method == 'lhs') {
-    print("Performing LHS sampling with rejection...")
+    print("Performing LH sampling with rejection...")
     return(points)
   }
   if (include_line) {
@@ -121,7 +121,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
   if (method == 'importance') {
     print("Performing importance sampling...")
     if (!burn_in)
-      sd <- min(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/8
+      sd <- purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4
     else
       sd <- NULL
     points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, ...)
@@ -225,7 +225,7 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
   return(outset)
 }
 
-importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, dist = 'sphere', plausible_set, burn_in = FALSE) {
+importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, distro = 'sphere', plausible_set, burn_in = FALSE) {
   J <- function(dat) {
     t_dat <- dat
     for (i in 1:length(ems)) {
@@ -238,15 +238,15 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
   }
   if (!burn_in) {
     if (is.null(sd)) {
-      if (dist == 'normal') {
+      if (distro == 'normal') {
         lengths <- purrr::map_dbl(ranges, ~.[2]-.[1])
         sd <- diag((lengths/6)^2, length(lengths))
       }
-      else sd = purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/8
+      else sd = purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4
     }
   }
   if (is.null(sd)) {
-    if (dist == 'sphere') {
+    if (distro == 'sphere') {
       print("Performing burn-in..")
       upper_n_p <- 500
       sd_temp <- mean(purrr::map_dbl(ranges, ~.[[2]]-.[[1]]))/4
@@ -262,29 +262,35 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
       return(importance_sample(ems, ranges, n_points, z, sd = sd_temp, plausible_set = plausible_set))
     }
   }
-  new_points <- NULL
-  if (dist == 'normal') {
+  new_points <- plausible_set
+  if (distro == 'normal') {
     weights <- apply(plausible_set, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
     min_w <- min(weights)
   }
   repeat {
     which_points <- plausible_set[sample(1:nrow(plausible_set), 10*n_points, replace = TRUE),]
-    if (dist == 'normal')
+    if (distro == 'normal')
       proposal_points <- t(apply(which_points, 1, function(x) rmvnorm(1, mean = unlist(x, use.names = F), sigma = sd)))
     else {
       proposal_points <- t(apply(which_points, 1, function(x) runifs(1, length(plausible_set), unlist(x, use.names = F), r = sd)))
     }
     p_rest1 <- proposal_points[range_func(setNames(data.frame(proposal_points), names(ranges)), ranges), ]
     proposal_restrict <- p_rest1[J(setNames(data.frame(p_rest1), names(ranges))),]
-    if (nrow(proposal_restrict) == 0) next
-    if (dist == 'normal') {
+    possibleError <- tryCatch(
+      if (nrow(proposal_restrict) < 2) next,
+      error = function(e) e
+    )
+    if (inherits(possibleError, "error")) next
+    if (distro == 'normal') {
       t_weights <- apply(proposal_restrict, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
       p_weights <- min_w/t_weights
     }
     else
       p_weights <- apply(proposal_restrict, 1, function(x) sum(apply(plausible_set, 1, function(y) punifs(x, y, r = sd))))
     unifs <- runif(length(p_weights))
-    new_points <- if(is.null(new_points)) setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)) else rbind(new_points, setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)))
+    new_points <- rbind(new_points, setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)))
+    uniqueness <- row.names(unique(signif(new_points, 8)))
+    new_points <- new_points[uniqueness,]
     if (burn_in || nrow(new_points) >= n_points) break
   }
   if (burn_in) return(nrow(plausible_set) * nrow(new_points)/(10*n_points) * pi^(length(ranges)) * sd^(length(ranges)) / gamma(length(ranges)/2 + 1))
