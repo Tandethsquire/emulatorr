@@ -409,7 +409,8 @@ wave_points <- function(pts_list, in_names, surround = FALSE) {
     g <- ggplot(data = data, mapping = mapping) +
       geom_point(cex = 1.5)
     if (surround)
-      g <- geom_point(cex = 1.5, pch = 1, colour = 'black')
+      g <- g + geom_point(cex = 1.5, pch = 1, colour = 'black')
+    return(g)
   }
   pal <- viridis::viridis(length(pts_list), option = 'D', direction = -1)
   ggpairs(tot_dat, columns = 1:length(in_names), aes(colour = wave),

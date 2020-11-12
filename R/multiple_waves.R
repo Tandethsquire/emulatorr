@@ -46,7 +46,8 @@ simulator_plot <- function(wave_points, z, zero_in = TRUE, palette = NULL, wave_
     geom_point(data = obs, aes(x = variable, y = val)) +
     geom_errorbar(data = obs, aes(y = val, ymax = val + 3*sigma, ymin = val - 3*sigma), width = 0.1, size = 1.25) +
     labs(title = "Simulator evaluations at wave points") +
-    theme_minimal()
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
   return(g)
 }
 

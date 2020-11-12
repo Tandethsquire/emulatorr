@@ -262,7 +262,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
       return(importance_sample(ems, ranges, n_points, z, sd = sd_temp, plausible_set = plausible_set))
     }
   }
-  new_points <- plausible_set
+  new_points <- plausible_set[J(plausible_set),]
   if (distro == 'normal') {
     weights <- apply(plausible_set, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
     min_w <- min(weights)
