@@ -393,6 +393,7 @@ plot_lattice <- function(ems, targets, ppd = 20, cb = FALSE) {
 #'
 #' @param pts_list A list object, whose elements are data.frames of points
 #' @param in_names The input dimension names.
+#' @param surround Should points be plotted with (black) boundaries? Default: FALSE
 #'
 #' @return A ggplot object.
 #' @export

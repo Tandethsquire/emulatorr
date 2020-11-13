@@ -108,8 +108,12 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
   if (missing(plausible_set) || method == 'lhs') {
     if (method != 'lhs') print("Performing LH sampling with rejection...")
     points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
+    been_checked <- TRUE
   }
-  else points <- plausible_set
+  else {
+    points <- plausible_set
+    been_checked <- FALSE
+  }
   if (method == 'lhs') {
     print("Performing LH sampling with rejection...")
     return(points)
@@ -124,7 +128,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
       sd <- purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4
     else
       sd <- NULL
-    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, ...)
+    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, checked = been_checked, ...)
   }
   else if (method == 'slice') {
     print("Performing slice sampling...")
@@ -225,7 +229,7 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
   return(outset)
 }
 
-importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, distro = 'sphere', plausible_set, burn_in = FALSE) {
+importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, distro = 'sphere', plausible_set, burn_in = FALSE, checked = FALSE) {
   J <- function(dat) {
     t_dat <- dat
     for (i in 1:length(ems)) {
@@ -262,7 +266,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
       return(importance_sample(ems, ranges, n_points, z, sd = sd_temp, plausible_set = plausible_set))
     }
   }
-  new_points <- plausible_set[J(plausible_set),]
+  new_points <- if (checked) plausible_set else plausible_set[J(plausible_set),]
   if (distro == 'normal') {
     weights <- apply(plausible_set, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
     min_w <- min(weights)

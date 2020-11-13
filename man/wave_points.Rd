@@ -4,12 +4,14 @@
 \alias{wave_points}
 \title{Plot Points of Waves}
 \usage{
-wave_points(pts_list, in_names)
+wave_points(pts_list, in_names, surround = FALSE)
 }
 \arguments{
 \item{pts_list}{A list object, whose elements are data.frames of points}
 
 \item{in_names}{The input dimension names.}
+
+\item{surround}{Should points be plotted with (black) boundaries? Default: FALSE}
 }
 \value{
 A ggplot object.
