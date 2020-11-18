@@ -14,6 +14,7 @@ generate_new_runs(
   cutoff = 3,
   plausible_set,
   burn_in = FALSE,
+  verbose = TRUE,
   ...
 )
 }
@@ -35,6 +36,8 @@ generate_new_runs(
 \item{plausible_set}{Optional - a set of non-implausible points from which to start.}
 
 \item{burn_in}{If importance sampling, should a burn-in phase be used? Default: FALSE}
+
+\item{verbose}{Should progress statements by made? Default: TRUE}
 
 \item{...}{Any parameters that need to be passed to a particular method (see below)}
 }

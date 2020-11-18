@@ -75,6 +75,7 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' @param include_line Should line sampling be applied after point generation? Default: TRUE.
 #' @param plausible_set Optional - a set of non-implausible points from which to start.
 #' @param burn_in If importance sampling, should a burn-in phase be used? Default: FALSE
+#' @param verbose Should progress statements by made? Default: TRUE
 #' @param ... Any parameters that need to be passed to a particular method (see below)
 #'
 #' @return A \code{data.frame} containing the set of new points to simulate at.
@@ -104,10 +105,10 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 #' non_imp_sample <- non_imp_points[sample(seq_along(non_imp_points[,1]), 20),]
 #' pts_importance <- generate_new_runs(trained_ems, ranges, 10, targets,
 #'  method = 'importance', cutoff = 4, plausible_set = non_imp_sample, include_line = FALSE)}
-generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, ...) {
+generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, verbose = TRUE, ...) {
   if (missing(plausible_set) || method == 'lhs') {
-    if (method != 'lhs') print("Performing LH sampling with rejection...")
-    points <- lhs_generation(emulators, ranges, n_points, z, cutoff)
+    if (method != 'lhs' && verbose) print("Performing LH sampling with rejection...")
+    points <- lhs_generation(emulators, ranges, n_points, z, cutoff, verbose)
     been_checked <- TRUE
   }
   else {
@@ -115,15 +116,15 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
     been_checked <- FALSE
   }
   if (method == 'lhs') {
-    print("Performing LH sampling with rejection...")
+    if (verbose) print("Performing LH sampling with rejection...")
     return(points)
   }
   if (include_line) {
-    print("Performing line sampling...")
+    if (verbose) print("Performing line sampling...")
     points <- line_sample(emulators, points, z, ranges)
   }
   if (method == 'importance') {
-    print("Performing importance sampling...")
+    if (verbose) print("Performing importance sampling...")
     if (!burn_in)
       sd <- purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4
     else
@@ -131,12 +132,12 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
     points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, checked = been_checked, ...)
   }
   else if (method == 'slice') {
-    print("Performing slice sampling...")
+    if (verbose) print("Performing slice sampling...")
     points <- slice_generation(emulators, ranges, n_points, z, cutoff, x = unlist(points[sample(nrow(points), 1),]), ...)
   }
   else if (method == 'optical')
   {
-    print("Performing optical depth sampling...")
+    if (verbose) print("Performing optical depth sampling...")
     points <- optical_depth_generation(emulators, ranges, n_points, z, cutoff, plausible_set = points)
   }
   else stop("Unknown method used. Options are 'lhs', 'slice', 'optical', 'importance'.")
@@ -144,13 +145,13 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
 }
 
 # A function to perform lhs sampling
-lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff = 3) {
+lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff = 3, verbose = TRUE) {
   current_trace = NULL
   out_points <- NULL
   new_points <- eval_funcs(scale_input, setNames(data.frame(2*(lhs::randomLHS(n_points*20, length(ranges))-1/2)), names(ranges)), ranges, FALSE)
   if (!missing(z)) new_points <- new_points[nth_implausible(emulators, new_points, z)<=cutoff,]
   if (length(new_points[,1]) < n_points) {
-    message(cat("Only", length(new_points[,1]), "points generated."))
+    if (verbose) message(cat("Only", length(new_points[,1]), "points generated."))
     return(setNames(data.frame(new_points), names(ranges)))
   }
   #else message(cat(length(new_points[,1]), "non-implausible points generated. Applying V-optimality..."))
@@ -271,31 +272,33 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     weights <- apply(plausible_set, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
     min_w <- min(weights)
   }
-  repeat {
-    which_points <- plausible_set[sample(1:nrow(plausible_set), 10*n_points, replace = TRUE),]
-    if (distro == 'normal')
-      proposal_points <- t(apply(which_points, 1, function(x) rmvnorm(1, mean = unlist(x, use.names = F), sigma = sd)))
-    else {
-      proposal_points <- t(apply(which_points, 1, function(x) runifs(1, length(plausible_set), unlist(x, use.names = F), r = sd)))
+  if (nrow(new_points) < n_points) {
+    repeat {
+      which_points <- plausible_set[sample(1:nrow(plausible_set), 10*n_points, replace = TRUE),]
+      if (distro == 'normal')
+        proposal_points <- t(apply(which_points, 1, function(x) rmvnorm(1, mean = unlist(x, use.names = F), sigma = sd)))
+      else {
+        proposal_points <- t(apply(which_points, 1, function(x) runifs(1, length(plausible_set), unlist(x, use.names = F), r = sd)))
+      }
+      p_rest1 <- proposal_points[range_func(setNames(data.frame(proposal_points), names(ranges)), ranges), ]
+      proposal_restrict <- p_rest1[J(setNames(data.frame(p_rest1), names(ranges))),]
+      possibleError <- tryCatch(
+        if (nrow(proposal_restrict) < 2) next,
+        error = function(e) e
+      )
+      if (inherits(possibleError, "error")) next
+      if (distro == 'normal') {
+        t_weights <- apply(proposal_restrict, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
+        p_weights <- min_w/t_weights
+      }
+      else
+        p_weights <- apply(proposal_restrict, 1, function(x) sum(apply(plausible_set, 1, function(y) punifs(x, y, r = sd))))
+      unifs <- runif(length(p_weights))
+      new_points <- rbind(new_points, setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)))
+      uniqueness <- row.names(unique(signif(new_points, 8)))
+      new_points <- new_points[uniqueness,]
+      if (burn_in || nrow(new_points) >= n_points) break
     }
-    p_rest1 <- proposal_points[range_func(setNames(data.frame(proposal_points), names(ranges)), ranges), ]
-    proposal_restrict <- p_rest1[J(setNames(data.frame(p_rest1), names(ranges))),]
-    possibleError <- tryCatch(
-      if (nrow(proposal_restrict) < 2) next,
-      error = function(e) e
-    )
-    if (inherits(possibleError, "error")) next
-    if (distro == 'normal') {
-      t_weights <- apply(proposal_restrict, 1, function(x) 1/nrow(plausible_set) * sum(apply(plausible_set, 1, function(y) dmvnorm(x, mean = y, sigma = sd))))
-      p_weights <- min_w/t_weights
-    }
-    else
-      p_weights <- apply(proposal_restrict, 1, function(x) sum(apply(plausible_set, 1, function(y) punifs(x, y, r = sd))))
-    unifs <- runif(length(p_weights))
-    new_points <- rbind(new_points, setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)))
-    uniqueness <- row.names(unique(signif(new_points, 8)))
-    new_points <- new_points[uniqueness,]
-    if (burn_in || nrow(new_points) >= n_points) break
   }
   if (burn_in) return(nrow(plausible_set) * nrow(new_points)/(10*n_points) * pi^(length(ranges)) * sd^(length(ranges)) / gamma(length(ranges)/2 + 1))
   return(new_points[sample(nrow(new_points), n_points),])
