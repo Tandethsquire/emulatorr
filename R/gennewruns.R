@@ -108,7 +108,7 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z, method = 'importance', include_line = TRUE, cutoff = 3, plausible_set, burn_in = FALSE, verbose = TRUE, ...) {
   if (missing(plausible_set) || method == 'lhs') {
     if (method != 'lhs' && verbose) print("Performing LH sampling with rejection...")
-    points <- lhs_generation(emulators, ranges, n_points, z, cutoff, verbose)
+    points <- lhs_generation(emulators, ranges, n_points, z, cutoff = cutoff, verbose = verbose)
     been_checked <- TRUE
   }
   else {
