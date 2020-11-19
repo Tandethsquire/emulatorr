@@ -49,6 +49,7 @@
 #'  targets = targets, sd = 1, cutoff = 4)
 #'
 validation_diagnostics <- function(emulators, validation_points, output_names, which_diag = 'all', targets = NULL, ...) {
+  if (!is.null(targets) && is.null(names(targets))) names(targets) <- output_names
   in_points <- validation_points[,names(emulators[[1]]$ranges)]
   out_points <- validation_points[,output_names]
   fail_point_list <- list()
@@ -67,7 +68,7 @@ validation_diagnostics <- function(emulators, validation_points, output_names, w
   op <- par(mfrow = c(3, mf))
   for (i in 1:length(emulators))
   {
-    if (purrr::some(actual_diag, ~. == 'cd')) fail_point_list[[length(fail_point_list)+1]] <- comparison_diagnostics(emulators[[i]], in_points, out_points[[i]], output_names[[i]], ...)
+    if (purrr::some(actual_diag, ~. == 'cd')) fail_point_list[[length(fail_point_list)+1]] <- comparison_diagnostics(emulators[[i]], in_points, out_points[[i]], output_names[[i]], targets = targets, ...)
     if (purrr::some(actual_diag, ~. == 'se')) fail_point_list[[length(fail_point_list)+1]] <- standard_errors(emulators[[i]], in_points, out_points[[i]], output_names[[i]], ...)
     if (purrr::some(actual_diag, ~. == 'ce') && cl) fail_point_list[[length(fail_point_list)+1]] <- classification_error(emulators[[i]], in_points, out_points[[i]], targets[[i]], output_names[[i]], ...)
   }
@@ -132,6 +133,7 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #' @param sd Numeric: the allowed number of standard deviations (default: 3).
 #' @param output_name Optional. A name for the output.
 #' @param plt Should a plot be shown (default: T).
+#' @param targets The output targets (to check if failing points are relevant). Default: NULL
 #' @param ... Dummy parameters (for compatibility with diagnostic wrapper)
 #'
 #' @return A list of points whose emulator value is outside the allowed standard deviation.
@@ -143,13 +145,18 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
 #'  quadratic = TRUE)[[1]]
 #' comparison_diagnostics(em, GillespieValidation[,1:3], GillespieValidation[,'nS'])
 #' #> (0.7864384, 0.01426296, 0.001072935)
-comparison_diagnostics <- function(emulator, input_points, output_points, output_name, sd=3, plt=T, ...) {
+comparison_diagnostics <- function(emulator, input_points, output_points, output_name, sd=3, plt=T, targets = NULL, ...) {
   emulator_outputs <- emulator$get_exp(input_points)
   emulator_uncertainty <- sd*sqrt(emulator$get_cov(input_points))
   em_ranges <- range(c(emulator_outputs + emulator_uncertainty, emulator_outputs - emulator_uncertainty))
   emulator_invalid <- purrr::map2_lgl(output_points>emulator_outputs+emulator_uncertainty,
                                       output_points<emulator_outputs-emulator_uncertainty,
                                       ~.x|.y)
+  if (!is.null(targets)) {
+    this_target <- targets[[output_name]]
+    point_invalid <- (output_points < this_target$val - 2*sd*this_target$sigma) | (output_points > this_target$val + 2*sd*this_target$sigma)
+    emulator_invalid <- (!point_invalid) & emulator_invalid
+  }
   if (missing(output_name))
     title_str <- "Simulator/Emulator Comparison"
   else

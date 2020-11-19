@@ -11,6 +11,7 @@ comparison_diagnostics(
   output_name,
   sd = 3,
   plt = T,
+  targets = NULL,
   ...
 )
 }
@@ -26,6 +27,8 @@ comparison_diagnostics(
 \item{sd}{Numeric: the allowed number of standard deviations (default: 3).}
 
 \item{plt}{Should a plot be shown (default: T).}
+
+\item{targets}{The output targets (to check if failing points are relevant). Default: NULL}
 
 \item{...}{Dummy parameters (for compatibility with diagnostic wrapper)}
 }
