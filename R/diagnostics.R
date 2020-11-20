@@ -69,7 +69,7 @@ validation_diagnostics <- function(emulators, validation_points, output_names, w
   for (i in 1:length(emulators))
   {
     if (purrr::some(actual_diag, ~. == 'cd')) fail_point_list[[length(fail_point_list)+1]] <- comparison_diagnostics(emulators[[i]], in_points, out_points[[i]], output_names[[i]], targets = targets, ...)
-    if (purrr::some(actual_diag, ~. == 'se')) fail_point_list[[length(fail_point_list)+1]] <- standard_errors(emulators[[i]], in_points, out_points[[i]], output_names[[i]], ...)
+    if (purrr::some(actual_diag, ~. == 'se')) fail_point_list[[length(fail_point_list)+1]] <- standard_errors(emulators[[i]], in_points, out_points[[i]], output_names[[i]], targets = targets, ...)
     if (purrr::some(actual_diag, ~. == 'ce') && cl) fail_point_list[[length(fail_point_list)+1]] <- classification_error(emulators[[i]], in_points, out_points[[i]], targets[[i]], output_names[[i]], ...)
   }
   par(op)
@@ -93,6 +93,7 @@ validation_diagnostics <- function(emulators, validation_points, output_names, w
 #' @param output_points The outputs, \code{f(x)}, from the simulator.
 #' @param output_name Optional. A name for the output.
 #' @param plt Should a plot be shown (default: T).
+#' @param targets The output targets (to check if failing points are relevant). Default: NULL
 #' @param ... Dummy parameters (for compatibility with diagnostic wrapper)
 #'
 #' @return A list of standard errors.
@@ -104,7 +105,7 @@ validation_diagnostics <- function(emulators, validation_points, output_names, w
 #'  quadratic = TRUE)[[1]]
 #' standard_errors(em, GillespieValidation[,1:3], GillespieValidation[,'nS'], 'nS')
 #' #> (0.7864384, 0.01426296, 0.001072935)
-standard_errors <- function(emulator, input_points, output_points, output_name, plt = T, ...) {
+standard_errors <- function(emulator, input_points, output_points, output_name, plt = T, targets = NULL, ...) {
   errors <- (emulator$get_exp(input_points)-output_points)/sqrt(emulator$get_cov(input_points))
   if (plt) {
     if (missing(output_name))
@@ -112,7 +113,13 @@ standard_errors <- function(emulator, input_points, output_points, output_name, 
     else
       hist(errors, xlab="Standard Error", main = paste("Standard Errors for Output:",output_name))
   }
-  return(input_points[abs(errors)>3,])
+  emulator_invalid <- abs(errors) > 3
+  if (!is.null(targets)) {
+    this_target <- targets[[output_name]]
+    point_invalid <- (output_points < this_target$val - 6*this_target$sigma) | (output_points > this_target$val + 6*this_target$sigma)
+    emulator_invalid <- (!point_invalid) & emulator_invalid
+  }
+  return(input_points[emulator_invalid,])
 }
 
 #' Emulator Diagnostic Plot

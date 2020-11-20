@@ -324,5 +324,7 @@ line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 25, cu
     if (imps[x] && in_rg[x] && (!imps[x-1] || !imps[x+1])) return(TRUE)
     return(FALSE)
   })
-  return(rbind(sample_points, sampled_points[include_points,]))
+  out_df <- rbind(sample_points, sampled_points[include_points,])
+  uniqueness <- row.names(unique(signif(out_df, 8)))
+  return(out_df[uniqueness,])
 }

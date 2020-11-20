@@ -10,6 +10,7 @@ standard_errors(
   output_points,
   output_name,
   plt = T,
+  targets = NULL,
   ...
 )
 }
@@ -23,6 +24,8 @@ standard_errors(
 \item{output_name}{Optional. A name for the output.}
 
 \item{plt}{Should a plot be shown (default: T).}
+
+\item{targets}{The output targets (to check if failing points are relevant). Default: NULL}
 
 \item{...}{Dummy parameters (for compatibility with diagnostic wrapper)}
 }
