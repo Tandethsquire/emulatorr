@@ -295,7 +295,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
         p_weights <- apply(proposal_restrict, 1, function(x) sum(apply(plausible_set, 1, function(y) punifs(x, y, r = sd))))
       unifs <- runif(length(p_weights))
       new_points <- rbind(new_points, setNames(data.frame(proposal_restrict[unifs < 1/p_weights,]), names(ranges)))
-      uniqueness <- row.names(unique(signif(new_points, 8)))
+      uniqueness <- row.names(unique(signif(new_points, 6)))
       new_points <- new_points[uniqueness,]
       if (burn_in || nrow(new_points) >= n_points) break
     }
@@ -325,6 +325,6 @@ line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 25, cu
     return(FALSE)
   })
   out_df <- rbind(sample_points, sampled_points[include_points,])
-  uniqueness <- row.names(unique(signif(out_df, 8)))
+  uniqueness <- row.names(unique(signif(out_df, 6)))
   return(out_df[uniqueness,])
 }
