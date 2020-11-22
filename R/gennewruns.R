@@ -305,7 +305,8 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
 }
 
 # Line sampling
-line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 25, cutoff = 3) {
+line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 26, cutoff = 3) {
+  if (ppl%%4 == 1) ppl <- ppl+1
   range_func <- function(x, ranges) {
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
@@ -316,7 +317,7 @@ line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 25, cu
   })
   top_points <- s_lines[order(purrr::map_dbl(s_lines, ~.$dist), decreasing = TRUE)][1:nlines]
   selected_points <- array(0, dim = c(nlines * ppl, length(sample_points)))
-  sampled_points <- do.call('rbind', lapply(top_points, function(x) do.call('rbind', lapply(seq(-1, 1, length.out = 25), function(y) (x[[1]]+x[[2]])/2 + y*(x[[2]]-x[[1]])))))
+  sampled_points <- do.call('rbind', lapply(top_points, function(x) do.call('rbind', lapply(seq(-1, 1, length.out = ppl), function(y) (x[[1]]+x[[2]])/2 + y*(x[[2]]-x[[1]])))))
   imps <- nth_implausible(ems, sampled_points, z) < cutoff
   in_rg <- apply(sampled_points, 1, range_func, ranges)
   include_points <- purrr::map_lgl(seq_along(imps), function(x) {
