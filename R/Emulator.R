@@ -54,11 +54,11 @@ Emulator <- R6::R6Class(
         self$out_data <- data[, !(names(data) %in% names(self$ranges))]
       }
       if (!is.null(self$in_data)) {
-        private$data_corrs <- minv(self$u_sigma^2 * apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y)))
+        private$data_corrs <- chol2inv(chol(self$u_sigma^2 * apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y))))
         private$design_matrix <- t(apply(self$in_data, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x)))
-        private$u_var_modifier <- mmult(mmult(private$data_corrs, private$design_matrix), mmult(self$beta_sigma, mmult(t(private$design_matrix), private$data_corrs)))
-        private$u_exp_modifier <- mmult(private$data_corrs, self$out_data - private$design_matrix %*% self$beta_mu)
-        private$beta_u_cov_modifier <- mmult(mmult(self$beta_sigma, t(private$design_matrix)), private$data_corrs)
+        private$u_var_modifier <- private$data_corrs %*% private$design_matrix %*% self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
+        private$u_exp_modifier <- private$data_corrs %*% (self$out_data - private$design_matrix %*% self$beta_mu)
+        private$beta_u_cov_modifier <- self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
       }
     },
     get_exp = function(x) {
@@ -70,7 +70,7 @@ Emulator <- R6::R6Class(
       u_part <- apply(x, 1, self$u_mu)
       if (!is.null(self$in_data)) {
         c_data <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
-        u_part <- u_part + (mmult(bu, t(private$design_matrix)) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
+        u_part <- u_part + (bu %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
       }
       return(beta_part + u_part)
     },
@@ -91,7 +91,7 @@ Emulator <- R6::R6Class(
       }
       if (full || nrow(x) != nrow(xp)) {
         x_xp_c <- apply(xp, 1, function(y) apply(x, 1, self$corr_func, y))
-        beta_part <- mmult(t(g_x), mmult(self$beta_sigma, g_xp))
+        beta_part <- t(g_x) %*% self$beta_sigma %*% g_xp
         u_part <- self$u_sigma^2 * x_xp_c
         if (!is.null(self$in_data)) {
           c_x <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
@@ -101,10 +101,10 @@ Emulator <- R6::R6Class(
             c_xp <- t(c_xp)
           }
           u_part <- u_part - self$u_sigma^4 * c_x %*% (private$data_corrs - private$u_var_modifier) %*% t(c_xp)
-          bupart_x <- bupart_x - mmult(private$beta_u_cov_modifier, private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
-          bupart_xp <- bupart_xp - mmult(private$beta_u_cov_modifier, (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp)))
+          bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
+          bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
         }
-        bupart <- mmult(t(g_x), bupart_xp) + mmult(t(bupart_x), g_xp)
+        bupart <- t(g_x) %*% bupart_xp + t(bupart_x) %*% g_xp
       }
       else {
         point_seq <- 1:nrow(x)
@@ -118,8 +118,8 @@ Emulator <- R6::R6Class(
             c_xp <- t(c_xp)
           }
           u_part <- u_part - self$u_sigma^4 * rowSums((c_x %*% (private$data_corrs - private$u_var_modifier)) * c_xp)
-          bupart_x <- bupart_x - mmult(private$beta_u_cov_modifier, private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
-          bupart_xp <- bupart_xp - mmult(private$beta_u_cov_modifier, private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
+          bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
+          bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
         }
         bupart <- purrr::map_dbl(point_seq, ~t(purrr::map_dbl(self$basis_f, purrr::exec, x[.,])) %*% bupart_xp[,.x] + t(bupart_x[,.x] %*% purrr::map_dbl(self$basis_f, purrr::exec, xp[.,])))
       }
@@ -141,10 +141,10 @@ Emulator <- R6::R6Class(
       }
       else {
         G <- apply(this_data_in, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x))
-        O <- minv(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x)))
-        siginv <- minv(self$beta_sigma)
-        new_beta_var <- minv(mmult(G, mmult(O, t(G))) + siginv)
-        new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + mmult(G, O) %*% this_data_out)
+        O <- chol2inv(chol(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x))))
+        siginv <- chol2inv(chol(self$beta_sigma))
+        new_beta_var <- chol2inv(chol(G %*% O %*% t(G) + siginv))
+        new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + G %*% O %*% this_data_out)
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
