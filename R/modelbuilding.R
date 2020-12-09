@@ -236,7 +236,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
     if (quadratic) {
       all_funcs <- c(all_funcs, apply(expand.grid(1:length(input_names), 1:length(input_names)), 1, function(y) function(x) x[[y[[1]]]]*x[[y[[2]]]]))
       all_coeffs <- c(all_coeffs, apply(expand.grid(input_names, input_names), 1, paste, collapse = ":"))
-      all_coeffs <- sub("(.*):(\\1)", "I(\\1^2)", all_coeffs)
+      all_coeffs <- sub("(.*):(\\1)$", "I(\\1^2)", all_coeffs)
     }
     model_beta_mus <- purrr::map(models, ~c(.$coefficients, use.names = FALSE))
     model_basis_funcs <- purrr::map(models, ~all_funcs[all_coeffs %in% variable.names(.)])
