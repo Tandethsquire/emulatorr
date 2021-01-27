@@ -21,12 +21,17 @@ Emulator <- R6::R6Class(
     ranges = NULL,
     delta = NULL,
     model = NULL,
+    model_terms = NULL,
     active_vars = NULL,
     corr = NULL,
     o_em = NULL,
     output_name = NULL,
     initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL, out_name = NULL) {
       self$model <- model
+      self$model_terms <- tryCatch(
+        c("1", labels(terms(self$model))),
+        error = function(e) return(NULL)
+      )
       self$o_em <- original_em
       self$basis_f <- basis_f
       self$beta_mu <- beta$mu
@@ -61,23 +66,56 @@ Emulator <- R6::R6Class(
         private$beta_u_cov_modifier <- self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
       }
     },
-    get_exp = function(x) {
+    get_exp = function(x, p = NULL) {
+      if (is.null(self$model_terms) && !is.null(p)) {
+        warning("Can't extract functional form of basis functions, so cannot differentiate them. Setting p = NULL.")
+        p = NULL
+      }
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- data.matrix(scale_input(x, self$ranges))
-      g <- t(apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y)))
+      x <- scale_input(x, self$ranges)
+      if (is.null(p)) {
+        g <- t(apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y)))
+      }
+      else {
+        if (!p %in% names(self$ranges)) return(0)
+        g_d <- purrr::map(self$model_terms, ~D(parse(text = sub("I\\((\\w*\\^\\d*)\\)", "\\1", gsub(":", "*", .))), p))
+        g <- matrix(unlist(do.call('rbind', purrr::map(seq_along(x[,1]), function(y) purrr::map(g_d, ~eval(., envir = x[y,]))))), nrow = nrow(x))
+      }
+      x <- data.matrix(x)
+      ## Need to think about how Cov[beta, u] will change if we use derivtaives.
       bu <- t(apply(x, 1, self$beta_u_cov))
       beta_part <- g %*% self$beta_mu
       u_part <- apply(x, 1, self$u_mu)
       if (!is.null(self$in_data)) {
-        c_data <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+        if (!is.null(p)) {
+          c_data <- -2*apply(self$in_data, 1, function(y) x[,p] - y[p]) * apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))/self$theta^2
+        }
+        else {
+          c_data <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+        }
         u_part <- u_part + (bu %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
       }
       return(beta_part + u_part)
     },
-    get_cov = function(x, xp = NULL, full = FALSE) {
+    get_cov = function(x, p = NULL, xp = NULL, full = FALSE) {
+      if (is.null(self$model_terms) && !is.null(p)) {
+        warning("Can't extract functional form of basis functions, so cannot differentiate them. Setting p = NULL.")
+        p = NULL
+      }
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- data.matrix(scale_input(x, self$ranges))
-      g_x <- apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y))
+      x <- scale_input(x, self$ranges)
+      if (!is.null(p)) {
+        if (!p %in% names(self$ranges)) {
+          if (!full) return(0)
+          else return(matrix(0, nrow = nrow(x), ncol = nrow(xp)))
+        }
+        g_d <- purrr::map(self$model_terms, ~D(parse(text = sub("I\\((\\w*\\^\\d*)\\)", "\\1", gsub(":", "*", .))), p))
+        g_x <- t(matrix(unlist(do.call('rbind', purrr::map(seq_along(x[,1]), function(y) purrr::map(g_d, ~eval(., envir = x[y,]))))), nrow = nrow(x)))
+      }
+      else {
+        g_x <- apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y))
+      }
+      x <- data.matrix(x)
       bupart_x <- apply(x, 1, self$beta_u_cov)
       if (is.null(xp)) {
         xp <- x
@@ -85,17 +123,34 @@ Emulator <- R6::R6Class(
         bupart_xp <- bupart_x
       }
       else {
-        xp <- data.matrix(scale_input(xp, self$ranges))
-        g_xp <- apply(xp, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y))
+        if (!is.null(p)) {
+          xp <- scale_input(xp, self$ranges)
+          g_xp <- t(matrix(unlist(do.call('rbind', purrr::map(seq_along(xp[,1]), function(y) purrr::map(g_d, ~eval(., envir = xp[y,]))))), nrow = nrow(xp)))
+        }
+        else {
+          g_xp <- apply(xp, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y))
+        }
+        xp <- data.matrix(xp)
         bupart_xp <- apply(xp, 1, self$beta_u_cov)
       }
       if (full || nrow(x) != nrow(xp)) {
-        x_xp_c <- apply(xp, 1, function(y) apply(x, 1, self$corr_func, y))
+        if (!is.null(p)) {
+          x_xp_c <- (2/self$theta^2 - 4/self$theta^4 * apply(xp, 1, function(y) apply(x, 1, function(x) (x[p] - y[p])^2))) * apply(xp, 1, function(y) apply(x, 1, self$corr_func, y))
+        }
+        else {
+          x_xp_c <- apply(xp, 1, function(y) apply(x, 1, self$corr_func, y))
+        }
         beta_part <- t(g_x) %*% self$beta_sigma %*% g_xp
         u_part <- self$u_sigma^2 * x_xp_c
         if (!is.null(self$in_data)) {
-          c_x <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
-          c_xp <- if(all(x == xp)) c_x else apply(self$in_data, 1, function(y) apply(xp, 1, self$corr_func, y))
+          if (!is.null(p)) {
+            c_x <- -2*apply(self$in_data, 1, function(y) x[,p] - y[p]) * apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))/self$theta^2
+            c_xp <- -2*apply(self$in_data, 1, function(y) xp[,p] - y[p]) * apply(self$in_data, 1, function(y) apply(xp, 1, self$corr_func, y))/self$theta^2
+          }
+          else {
+            c_x <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+            c_xp <- apply(self$in_data, 1, function(y) apply(xp, 1, self$corr_func, y))
+          }
           if (nrow(x) == 1) {
             c_x <- t(c_x)
             c_xp <- t(c_xp)
@@ -108,11 +163,22 @@ Emulator <- R6::R6Class(
       }
       else {
         point_seq <- 1:nrow(x)
-        beta_part <- purrr::map_dbl(point_seq, ~purrr::map_dbl(self$basis_f, purrr::exec, x[.,]) %*% self$beta_sigma %*% purrr::map_dbl(self$basis_f, purrr::exec, xp[.,]))
-        u_part <- purrr::map_dbl(point_seq, ~self$corr_func(x[.,], xp[.,])) * self$u_sigma^2
+        beta_part <- purrr::map_dbl(point_seq, ~g_x[,.] %*% self$beta_sigma %*% g_xp[,.])
+        if (!is.null(p)) {
+          u_part <- self$u_sigma^2 * purrr::map_dbl(point_seq, ~(2/self$theta^2 - 4/self$theta^4 * (x[.,p] - xp[.,p])^2) * self$corr_func(x[.,], xp[.,]))
+        }
+        else {
+          u_part <- purrr::map_dbl(point_seq, ~self$corr_func(x[.,], xp[.,])) * self$u_sigma^2
+        }
         if (!is.null(self$in_data)) {
-          c_x <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
-          c_xp <- if(all(x == xp)) c_x else apply(self$in_data, 1, function(y) apply(xp, 1, self$corr_func, y))
+          if (!is.null(p)) {
+            c_x <- -2*apply(self$in_data, 1, function(y) x[,p] - y[p]) * apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))/self$theta^2
+            c_xp <- -2*apply(self$in_data, 1, function(y) xp[,p] - y[p]) * apply(self$in_data, 1, function(y) apply(xp, 1, self$corr_func, y))/self$theta^2
+          }
+          else {
+            c_x <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+            c_xp <- if(all(x == xp)) c_x else apply(self$in_data, 1, function(y) apply(xp, 1, self$corr_func, y))
+          }
           if (nrow(x) == 1) {
             c_x <- t(c_x)
             c_xp <- t(c_xp)
@@ -149,7 +215,7 @@ Emulator <- R6::R6Class(
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
                              bucov = self$beta_u_cov, ranges = self$ranges, data = data[, c(names(self$ranges),out_name)],
-                             delta = self$delta, original_em = self, out_name = out_name)
+                             delta = self$delta, original_em = self, out_name = out_name, model = self$model)
       return(new_em)
     },
     set_sigma = function(sigma) {

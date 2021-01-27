@@ -69,13 +69,16 @@ Creates an univariate emulator object.
 \section{Accessor Methods}{
 
 
-     \code{get_exp(x)} Returns the emulator expectation at a collection of points, \code{x}.
+     \code{get_exp(x, p=NULL)} Returns the emulator expectation at a collection of points,
+     \code{x}. If the parameter \code{p} is provided, the derivative of the expectation in
+     the \code{p} direction will be returned.
 
-     \code{get_cov(x, xp=NULL, full = FALSE)} Returns the covariance between collections of
-     points \code{x} and \code{xp}. If no \code{xp} is supplied, then the covariance matrix
-     for the points in \code{x} is calculated; if \code{full = TRUE}, the full covariance
-     matrix is calculated; otherwise only the variances Var[f(x), f(x')] are calculated for
-     each x in \code{x} and x' in \code{xp}.
+     \code{get_cov(x, p=NULL, xp=NULL, full = FALSE)} Returns the covariance between
+     collections of points \code{x} and \code{xp}. If no \code{xp} is supplied, then the
+     covariance matrix for the points in \code{x} is calculated; if \code{full = TRUE},
+     the full covariance matrix is calculated; otherwise only the variances Var[f(x), f(x')]
+     are calculated for each x in \code{x} and x' in \code{xp}. The parameter \code{p} has
+     the same purpose as the equivalent parameter in \code{get_exp}.
 
      \code{print()} Returns a summary of the emulator specifications.
 
