@@ -69,16 +69,25 @@ Creates an univariate emulator object.
 \section{Accessor Methods}{
 
 
-     \code{get_exp(x, p=NULL)} Returns the emulator expectation at a collection of points,
-     \code{x}. If the parameter \code{p} is provided, the derivative of the expectation in
-     the \code{p} direction will be returned.
+     Note that any derivative emulation functionality is currently EXPERIMENTAL. Use at your
+     own risk.
 
-     \code{get_cov(x, p=NULL, xp=NULL, full = FALSE)} Returns the covariance between
+     \code{get_exp(x, p=NULL, local.var = TRUE)} Returns the emulator expectation at a
+     collection of points,
+     \code{x}. If the parameter \code{p} is provided, the derivative of the expectation in
+     the \code{p} direction will be returned; if \code{local.var = TRUE}, then the
+     local correlation structure is taken into account when assessing derivative expectation.
+
+     \code{get_cov(x, p=NULL, xp=NULL, full = FALSE, pp=NULL, local.var = TRUE)} Returns
+     the covariance between
      collections of points \code{x} and \code{xp}. If no \code{xp} is supplied, then the
      covariance matrix for the points in \code{x} is calculated; if \code{full = TRUE},
      the full covariance matrix is calculated; otherwise only the variances Var[f(x), f(x')]
      are calculated for each x in \code{x} and x' in \code{xp}. The parameter \code{p} has
-     the same purpose as the equivalent parameter in \code{get_exp}.
+     the same purpose as the equivalent parameter in \code{get_exp}, as does \code{local.var};
+     the parameter \code{pp}
+     is similar, but determines the direction of differentiation in the second argument of
+     cov[d_i f(x), d_j f(x')].
 
      \code{print()} Returns a summary of the emulator specifications.
 
