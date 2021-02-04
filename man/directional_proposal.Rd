@@ -10,6 +10,7 @@ directional_proposal(
   targets,
   accept = 2,
   hcutoff = 1e-06,
+  iteration.measure = "exp",
   iteration.steps = 50
 )
 }
@@ -23,6 +24,8 @@ directional_proposal(
 \item{accept}{The implausibility value at which the proposal can increase the implausibility}
 
 \item{hcutoff}{A power of 10: the smallest allowed step-size, h}
+
+\item{iteration.measure}{Which measure to use for point suitability: expectation or implausibilty?}
 
 \item{iteration.steps}{How many iterations to perform before returning the point.}
 }
@@ -47,7 +50,9 @@ better.
 
 Provided a shared direction v has been identified, we then move in this direction as follows.
 The new point is defined as x + h*v, for some choice of h. To determine h, we initialise
-h = 0.1, propose a new point, and check the new implausibility. If the new implausibility
+h = 0.1, propose a new point, and check the new measure: the measures are either implausibility
+or (default) the difference between the target value and the emulator expectation, normalised
+by the target value. If the new measure
 is lower than the original one, we step along the direction further. If it is not, we reduce
 h and try again. This iteration terminates either when the new proposed point starts to
 increase the implausibility, if the value of h is particularly small (as determined by
