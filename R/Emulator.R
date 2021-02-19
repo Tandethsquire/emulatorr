@@ -82,7 +82,7 @@ Emulator <- R6::R6Class(
         g <- matrix(unlist(do.call('rbind', purrr::map(seq_along(x[,1]), function(y) purrr::map(g_d, ~eval(., envir = x[y,]))))), nrow = nrow(x))
       }
       x <- data.matrix(x)
-      ## Need to think about how Cov[beta, u] will change if we use derivtaives.
+      ## Need to think about how Cov[beta, u] will change if we use derivatives.
       bu <- t(apply(x, 1, self$beta_u_cov))
       beta_part <- g %*% self$beta_mu
       u_part <- apply(x, 1, self$u_mu)
@@ -227,6 +227,35 @@ Emulator <- R6::R6Class(
                              bucov = self$beta_u_cov, ranges = self$ranges, data = data[, c(names(self$ranges),out_name)],
                              delta = self$delta, original_em = self, out_name = out_name, model = self$model)
       return(new_em)
+    },
+    get_hessian = function(x, local.var = TRUE) {
+      x <- x[, names(x) %in% names(self$ranges)]
+      x <- scale_input(x, self$ranges)
+      result <- do.call('rbind', purrr::map(names(self$ranges), function(p1) {
+        purrr::map_dbl(names(self$ranges), function(p2) {
+          g_d <- purrr::map(self$model_terms, ~D(D(parse(text = sub("I\\((\\w*\\^\\d*)\\)", "\\1", gsub(":", "*", .))), p1),p2))
+          g <- matrix(unlist(do.call('rbind', purrr::map(seq_along(x[,1]), function(y) purrr::map(g_d, ~eval(., envir = x[y,]))))), nrow = nrow(x))
+          x <- data.matrix(x)
+          ## Need to think about how Cov[beta, u] will change if we use derivatives.
+          bu <- t(apply(x, 1, self$beta_u_cov))
+          beta_part <- g %*% self$beta_mu
+          u_part <- apply(x, 1, self$u_mu)
+          if (!is.null(self$in_data)) {
+            if (local.var) {
+              if (p1 == p2)
+                c_data <- (4/self$theta^4 * apply(self$in_data, 1, function(y) (x[,p1]-y[p1])^2) - 2/self$theta^2) * apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+              else
+                c_data <- 4/self$theta^4 * apply(self$in_data, 1, function(y) (x[,p1]-y[p1])*(x[,p2]-y[p2])) * apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+            }
+            else {
+              c_data <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
+            }
+            u_part <- u_part + (bu %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
+          }
+          return(beta_part + u_part)
+        })
+      }))
+      return(result)
     },
     set_sigma = function(sigma) {
       if(is.null(self$o_em)) {

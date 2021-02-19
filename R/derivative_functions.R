@@ -69,11 +69,12 @@ directional_fit <- function(em, x, v, ...) {
 #' @param hcutoff A power of 10: the smallest allowed step-size, h
 #' @param iteration.measure Which measure to use for point suitability: expectation or implausibilty?
 #' @param iteration.steps How many iterations to perform before returning the point.
+#' @param use.hessian Should the second erivatives be used to determine step size? Default = FALSE
 #'
 #' @return A new proposal point, or the original point if a suitable new point could not be found.
 #'
 #' @export
-directional_proposal <- function(ems, x, targets, accept = 2, hcutoff = 1e-06, iteration.measure = 'exp', iteration.steps = 50) {
+directional_proposal <- function(ems, x, targets, accept = 2, hcutoff = 1e-09, iteration.measure = 'exp', iteration.steps = 50, use.hessian = FALSE) {
   point_implaus <- purrr::map_dbl(seq_along(ems), ~ems[[.]]$implausibility(x, z = targets[[.]]))
   x_predict <- purrr::map_dbl(ems, ~.$get_exp(x))
   is_bigger <- purrr::map_lgl(seq_along(targets), ~targets[[.]]$val < x_predict[[.]])
@@ -98,29 +99,39 @@ directional_proposal <- function(ems, x, targets, accept = 2, hcutoff = 1e-06, i
   }
   range_dists <- purrr::map_dbl(ems[[1]]$ranges, ~(.[[2]]-.[[1]])/2)
   best_dir <- restrict_dirs[1,] * range_dists
-  old_measure <- if (iteration.measure == "exp") nth_discrepancy(ems, x, targets) else max(point_implaus)
-  better_pt <- NULL
-  attempts <- 0
-  gap <- 0.1
-  index <- 1
-  while(attempts < 50) {
-    new_point <- x + gap * index * best_dir
-    new_measure <- if (iteration.measure == "exp") nth_discrepancy(ems, new_point, targets) else nth_implausible(ems, new_point, targets)
-    if (new_measure < old_measure) {
-      better_pt <- new_point
-      old_measure <- new_measure
-      index <- index + 1
-    }
-    else {
-      if (is.null(better_pt) && gap > hcutoff) {
-        gap <- gap * 0.1
+  if (!use.hessian) {
+    old_measure <- if (iteration.measure == "exp") nth_discrepancy(ems, x, targets) else max(point_implaus)
+    better_pt <- NULL
+    attempts <- 0
+    gap <- 1e-06
+    index <- 1
+    while(attempts < 50) {
+      new_point <- x + gap * index * best_dir
+      new_measure <- if (iteration.measure == "exp") nth_discrepancy(ems, new_point, targets) else nth_implausible(ems, new_point, targets)
+      if (new_measure < old_measure) {
+        better_pt <- new_point
+        old_measure <- new_measure
+        index <- index + 1
       }
       else {
-        break
+        if (is.null(better_pt) && gap > hcutoff) {
+          gap <- gap * 0.1
+        }
+        else {
+          break
+        }
       }
+      attempts <- attempts + 1
     }
-    attempts <- attempts + 1
+    if (is.null(better_pt)) return(x)
   }
-  if (is.null(better_pt)) return(x)
+  else {
+    hess <- purrr::map(ems, ~.$get_hessian(x))
+    better_pts <- setNames(data.frame(do.call('rbind', purrr::map(hess, ~x + solve(.) %*% best_dir))), names(ems[[1]]$ranges))
+    if (iteration.measure == "exp")
+      better_pt <- better_pts[which.min(purrr::map_dbl(seq_along(1:nrow(better_pts)), ~nth_discrepancy(ems, better_pts[.,], targets))),]
+    else
+      better_pt <- better_pts[which.min(nth_implausible(ems, better_pts, targets)),]
+  }
   return(better_pt)
 }

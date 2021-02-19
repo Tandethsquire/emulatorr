@@ -9,9 +9,10 @@ directional_proposal(
   x,
   targets,
   accept = 2,
-  hcutoff = 1e-06,
+  hcutoff = 1e-09,
   iteration.measure = "exp",
-  iteration.steps = 50
+  iteration.steps = 50,
+  use.hessian = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ directional_proposal(
 \item{iteration.measure}{Which measure to use for point suitability: expectation or implausibilty?}
 
 \item{iteration.steps}{How many iterations to perform before returning the point.}
+
+\item{use.hessian}{Should the second erivatives be used to determine step size? Default = FALSE}
 }
 \value{
 A new proposal point, or the original point if a suitable new point could not be found.
