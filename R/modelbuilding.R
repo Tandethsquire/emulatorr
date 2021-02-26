@@ -133,7 +133,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta 
   })
   liks <- purrr::map_dbl(likelihood_list, ~.$L)
   l_ind <- which.max(liks)
-  return(list(sigma = likelihood_list[[l_ind]]$S/sqrt(length(outputs)), theta = likelihood_list[[l_ind]]$Th))
+  return(list(sigma = likelihood_list[[l_ind]]$S/sqrt(length(outputs)), theta = likelihood_list[[l_ind]]$Th, delta = delta))
 }
 
 #' Generate Prior Emulators from Data
@@ -187,6 +187,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta 
 #' @param ev Optional. Used for determining nugget terms in absence on delta
 #' @param quadratic Optional: should the regression surface be linear or quadratic? Default: F
 #' @param beta.var Optional: should the beta coefficient be assumed to be known or should model variance be included?
+#' @param lik.method Optional: method used to determine hyperparameters sigma and theta.
 #'
 #' @return A list of objects of class \code{\link{Emulator}}.
 #' @export
@@ -216,7 +217,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta 
 emulator_from_data <- function(input_data, output_names, ranges,
                                input_names = names(ranges), beta, u,
                                c_lengths, funcs, bucov, deltas, ev,
-                               quadratic = TRUE, beta.var = FALSE) {
+                               quadratic = TRUE, beta.var = FALSE, lik.method = 'nl') {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
     ranges <- purrr::map(input_names, ~c(-1,1))
@@ -253,18 +254,17 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if (missing(deltas)) model_deltas <- rep(0.1, length(output_names))
   else model_deltas <- deltas
   if (missing(u) || is.null(u[[1]]$sigma) || is.null(u[[1]]$mu) || is.null(u[[1]]$corr)) {
-    estimate_method <- 'nl'
-    if (estimate_method == "my") {
+    if (lik.method == "my") {
       residuals <- purrr::map(models, ~.$residuals)
-      ifelse(quadratic, theta_range <- c(0.2, 1), theta_range <- c(0.2, 2))
+      theta_range <- c(0.2, 2)
       specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
     }
     else {
       specs <- purrr::map(seq_along(output_names), ~hyperparam_fit(data[,c(input_names, output_names[[.]])], models[[.]]))
-      model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
-      model_u_mus <- purrr::map(output_names, ~function(x) 0)
-      model_deltas <- purrr::map_dbl(specs, ~.$delta)
     }
+    model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
+    model_u_mus <- purrr::map(output_names, ~function(x) 0)
+    model_deltas <- purrr::map_dbl(specs, ~.$delta)
     if (missing(c_lengths)) c_lengths <- purrr::map(specs, ~as.numeric(.$theta))
     model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, c_lengths[[.]]))
   }

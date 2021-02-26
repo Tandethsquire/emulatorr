@@ -199,7 +199,8 @@ Emulator <- R6::R6Class(
         }
         bupart <- purrr::map_dbl(point_seq, ~t(purrr::map_dbl(self$basis_f, purrr::exec, x[.,])) %*% bupart_xp[,.x] + t(bupart_x[,.x] %*% purrr::map_dbl(self$basis_f, purrr::exec, xp[.,])))
       }
-      return (beta_part + u_part + bupart)
+      final_out <- beta_part + u_part + bupart
+      return(round(final_out,10))
     },
     implausibility = function(x, z, cutoff = NULL) {
       output <- if (is.numeric(z)) list(val = z, sigma = 0) else z

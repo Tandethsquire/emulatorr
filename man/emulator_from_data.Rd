@@ -17,7 +17,8 @@ emulator_from_data(
   deltas,
   ev,
   quadratic = TRUE,
-  beta.var = FALSE
+  beta.var = FALSE,
+  lik.method = "nl"
 )
 }
 \arguments{
@@ -50,6 +51,8 @@ parameters and u(x).}
 \item{quadratic}{Optional: should the regression surface be linear or quadratic? Default: F}
 
 \item{beta.var}{Optional: should the beta coefficient be assumed to be known or should model variance be included?}
+
+\item{lik.method}{Optional: method used to determine hyperparameters sigma and theta.}
 }
 \value{
 A list of objects of class \code{\link{Emulator}}.
