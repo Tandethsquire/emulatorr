@@ -1,5 +1,7 @@
 Changelog (Development Branch)
 
+01/03/2021 - v.0.7.1a. Bug fixes and stability improvements: particularly in IDEMC. Works with larger dimensional parameter spaces, and efficiencies applied.
+
 29/01/2021 - v.0.7.1. Additional functionality for derivative emulation. A rudimentary proposal function for generating acceptable fits from points just outside the non-implausible region is included (directional_proposal). Currently experimental, as with all of the derivative emulation functionality.
 
 27/01/2021 - v.0.7.0. Including Deriative Emulation. The emulator functions get_exp and get_cov can be given an additional parameter, p, which when supplied returns the expectation and variance of the derivative of the function in the p direction.

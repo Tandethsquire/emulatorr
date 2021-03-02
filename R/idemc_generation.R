@@ -45,7 +45,7 @@ crossover <- function(x, imp_func, imps) {
 exchange <- function(x, imp_func, imps) {
   n <- nrow(x)
   i <- sample(n, 1)
-  if (i !=n && i != 1)
+  if (i != n && i != 1)
   {
     r <- runif(1)
     if (r < 0.5) {
@@ -99,22 +99,16 @@ mutate <- function(x, specs, imp_func, imps, w = 0.8, index = NULL) {
     return(x)
   }
   which_c <- function(x) {
-    ## Dealing with ill-conditioned covariance matrices
-    if (any(purrr::map_dbl(spec$vj, det) < 1e-90)) {
-      mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~mahalanobis(x, spec$mu[.,], spec$vj[[.]]+diag(1, nrow = nrow(spec$vj[[.]]))))
-    }
-    else {
-      mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~mahalanobis(x, spec$mu[.,], spec$vj[[.]]))
-    }
-    #mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~(x-spec$mu[.,]) %*% chol2inv(chol(spec$vj[[.]])) %*% (x - spec$mu[.,]))
+    mahal_dists <- purrr::map_dbl(seq_along(spec$vji), ~mahalanobis(x, spec$mu[.,], spec$vji[[.]], inverted = TRUE))
     return(which.min(mahal_dists))
   }
-  y <- c(w*mvtnorm::rmvnorm(1, chromosome, spec$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::rmvnorm(1, chromosome, spec$whole))
+  which_chrom <- which_c(chromosome)
+  y <- c(w*mvtnorm::rmvnorm(1, chromosome, spec$vj[[which_chrom]]) + (1-w)*mvtnorm::rmvnorm(1, chromosome, spec$whole))
   if (imp_func(setNames(data.frame(matrix(y, nrow = 1)), names(x)), imps[index])) {
-    if (which_c(y) == which_c(chromosome)) x[index,] <- y
+    if (which_c(y) == which_chrom) x[index,] <- y
     else {
-      num <- w*mvtnorm::dmvnorm(chromosome, y, spec$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::dmvnorm(chromosome, y, spec$whole)
-      denom <- w*mvtnorm::dmvnorm(y, chromosome, spec$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::dmvnorm(y, chromosome, spec$whole)
+      num <- w*mvtnorm::dmvnorm(chromosome, y, spec$vj[[which_chrom]]) + (1-w)*mvtnorm::dmvnorm(chromosome, y, spec$whole)
+      denom <- w*mvtnorm::dmvnorm(y, chromosome, spec$vj[[which_chrom]]) + (1-w)*mvtnorm::dmvnorm(y, chromosome, spec$whole)
       if(runif(1) < num/denom) x[index, ] <- y
     }
   }
@@ -163,7 +157,13 @@ get_specs <- function(x, max_clusters = 10) {
   vmeans <- do.call('rbind', purrr::map(1:cents, ~apply(x[clust$cluster == .,], 2, mean)))
   vmats <- purrr::map(1:cents, ~cov(x[clust$cluster == .,]))
   vwhole <- cov(x)
-  return(list(mu = vmeans, vj = vmats, whole = vwhole))
+  if (any(purrr::map_dbl(vmats, det) < 1e-90)) {
+    vmatsi <- purrr::map(vmats, ~chol2inv(chol(. + diag(0.1, nrow = nrow(.)))))
+  }
+  else {
+    vmatsi <- purrr::map(vmats, ~chol2inv(chol(.)))
+  }
+  return(list(mu = vmeans, vj = vmats, whole = vwhole, vji = vmatsi))
 }
 
 #' IDEMC step
@@ -271,8 +271,9 @@ IDEMC <- function(xsamp, ems, targets, s, sn, p, imp = 3, all_specs = NULL, imps
     all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
   }
   check_imp <- function(x, imp) {
+    if (!range_func(x, ems[[1]]$ranges)) return(FALSE)
     for (i in 1:length(ems)) if (!ems[[i]]$implausibility(x, targets[[i]], imp)) return(FALSE)
-    return(range_func(x, ems[[1]]$ranges))
+    return(TRUE)
   }
   if (is.null(all_specs) || is.null(imps)) {
     imps <- c(test_i)
