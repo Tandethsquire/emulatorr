@@ -75,6 +75,8 @@ exchange <- function(x, imp_func, imps) {
 #' variance structure. These are used as part of the proposal distribution for new
 #' points, y.
 #'
+#' @importFrom stats mahalanobis
+#'
 #' @param x The current points
 #' @param specs The cluster specifications for the ladder rungs
 #' @param imp_func An implausibility function (defined in \code{IDEMC})
@@ -97,14 +99,21 @@ mutate <- function(x, specs, imp_func, imps, w = 0.8, index = NULL) {
     return(x)
   }
   which_c <- function(x) {
-    mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~(x-spec$mu[.,]) %*% minv(spec$vj[[.]]) %*% (x - spec$mu[.,]))
+    ## Dealing with ill-conditioned covariance matrices
+    if (any(purrr::map_dbl(spec$vj, det) < 1e-90)) {
+      mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~mahalanobis(x, spec$mu[.,], spec$vj[[.]]+diag(1, nrow = nrow(spec$vj[[.]]))))
+    }
+    else {
+      mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~mahalanobis(x, spec$mu[.,], spec$vj[[.]]))
+    }
+    #mahal_dists <- purrr::map_dbl(seq_along(spec$vj), ~(x-spec$mu[.,]) %*% chol2inv(chol(spec$vj[[.]])) %*% (x - spec$mu[.,]))
     return(which.min(mahal_dists))
   }
   y <- c(w*mvtnorm::rmvnorm(1, chromosome, spec$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::rmvnorm(1, chromosome, spec$whole))
   if (imp_func(setNames(data.frame(matrix(y, nrow = 1)), names(x)), imps[index])) {
     if (which_c(y) == which_c(chromosome)) x[index,] <- y
     else {
-      num <- w*mvtnorm::dmvnorm(chromosome, y, specs$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::dmvnorm(chromosome, y, spec$whole)
+      num <- w*mvtnorm::dmvnorm(chromosome, y, spec$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::dmvnorm(chromosome, y, spec$whole)
       denom <- w*mvtnorm::dmvnorm(y, chromosome, spec$vj[[which_c(chromosome)]]) + (1-w)*mvtnorm::dmvnorm(y, chromosome, spec$whole)
       if(runif(1) < num/denom) x[index, ] <- y
     }
@@ -119,7 +128,7 @@ mutate <- function(x, specs, imp_func, imps, w = 0.8, index = NULL) {
 #' their clusters and a within-cluster variance matrix is determined. The full
 #' space also has its variance calculated.
 #'
-#' @importFrom stats cov kmeans
+#' @importFrom stats cov kmeans prcomp predict
 #'
 #' @param x The set of points
 #' @param max_clusters Determines the largest possible set of clusters
@@ -136,6 +145,11 @@ get_specs <- function(x, max_clusters = 10) {
   #   nobs = length(object$cluster),
   #   class = 'logLik'
   # )
+  ## Cluster using PCA decomposition of points
+  prcomped <- prcomp(x)
+  how_many_dims <- prcomped$sdev > 1
+  if (sum(how_many_dims) == 0) how_many_dims <- 1:min(3, length(x))
+  lower_dim <- predict(prcomped, x)[,how_many_dims]
   kBIC <- function(fit) {
     D <- fit$tot.withinss
     df <- nrow(fit$centers) * ncol(fit$centers)
@@ -143,10 +157,10 @@ get_specs <- function(x, max_clusters = 10) {
     return(D + df * log(nobs))
   }
   # If the commented code works, replace kBIC with BIC.
-  bics <- purrr::map_dbl(1:max_clusters, ~kBIC(kmeans(x, ., nstart = 20)))
+  bics <- purrr::map_dbl(1:max_clusters, ~kBIC(kmeans(lower_dim, ., nstart = 50)))
   cents <- which.min(bics)
-  clust <- kmeans(x, centers = cents, nstart = 20)
-  vmeans <- clust$centers
+  clust <- kmeans(lower_dim, centers = cents, nstart = 50)
+  vmeans <- do.call('rbind', purrr::map(1:cents, ~apply(x[clust$cluster == .,], 2, mean)))
   vmats <- purrr::map(1:cents, ~cov(x[clust$cluster == .,]))
   vwhole <- cov(x)
   return(list(mu = vmeans, vj = vmats, whole = vwhole))
