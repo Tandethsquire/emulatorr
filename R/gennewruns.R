@@ -150,6 +150,7 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
   out_points <- NULL
   new_points <- eval_funcs(scale_input, setNames(data.frame(2*(lhs::randomLHS(n_points*20, length(ranges))-1/2)), names(ranges)), ranges, FALSE)
   if (!missing(z)) new_points <- new_points[nth_implausible(emulators, new_points, z)<=cutoff,]
+  if (!"data.frame" %in% class(new_points)) new_points <- setNames(data.frame(new_points), names(ranges))
   if (length(new_points[,1]) < n_points) {
     if (verbose) message(cat("Only", length(new_points[,1]), "points generated."))
     return(setNames(data.frame(new_points), names(ranges)))
@@ -158,6 +159,7 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
   for (i in 1:n_runs)
   {
     new_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
+    if(!"data.frame" %in% class(new_points)) new_points <- setNames(data.frame(new_points), names(ranges))
     measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(emulators[[.x]]$get_cov(new_points))))
     if (is.null(current_trace) || measure < current_trace) {
       out_points <- new_points

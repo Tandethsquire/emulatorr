@@ -104,6 +104,7 @@ Emulator <- R6::R6Class(
         else
           u_part <- u_part + (bu %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
       }
+      if (length(self$beta_mu) == 1) return(c(beta_part + u_part))
       return(beta_part + u_part)
     },
     get_cov = function(x, p = NULL, xp = NULL, full = FALSE, pp = NULL, local.var = TRUE) {
