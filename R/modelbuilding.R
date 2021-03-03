@@ -28,7 +28,7 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
       upper_form <- as.formula(
         paste(
           output_name, " ~ ",
-          paste0(names(ranges), collapse = "+"),
+          paste0(c('1', names(ranges)), collapse = "+"),
           sep = ""
         )
       )
@@ -38,7 +38,7 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
         paste(
           output_name, "~",
           paste(
-            paste0(names(ranges), collapse = "+"),
+            paste0(c('1',names(ranges)), collapse = "+"),
             paste0("I(", names(ranges), "^2)", collapse = "+"),
             sep = "+"),
           sep = ""
@@ -48,17 +48,22 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
       a_vars <- names(start_model$coefficients)[-1]
       in_model <- purrr::map_lgl(names(ranges), ~any(grepl(., a_vars)))
       a_vars <- names(ranges)[in_model]
-      upper_form <- as.formula(
-        paste(
-          output_name, " ~ ",
+      if (length(a_vars) == 0) {
+        upper_form <- as.formula(paste(output_name, "~ 1"))
+      }
+      else {
+        upper_form <- as.formula(
           paste(
-            paste("(", paste(a_vars, collapse = "+"), ")^", order, sep = ""),
-            paste0("I(", a_vars, paste(")^", order, sep = ""), collapse = "+"),
-            sep = "+"
-          ),
-          sep = ""
+            output_name, " ~ ",
+            paste(
+              paste("(", paste(c('1', a_vars), collapse = "+"), ")^", order, sep = ""),
+              paste0("I(", a_vars, paste(")^", order, sep = ""), collapse = "+"),
+              sep = "+"
+            ),
+            sep = ""
+          )
         )
-      )
+      }
     }
   }
   else {
@@ -70,6 +75,7 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE, order 
   }
   scaled_input_data <- scale_input(data[, names(ranges)], ranges)
   full_scaled_data <- setNames(cbind(scaled_input_data, data[,output_name]), c(names(ranges), output_name))
+  if (!"data.frame" %in% class(full_scaled_data)) full_scaled_data <- setNames(data.frame(full_scaled_data), c(names(ranges), output_name))
   if (add) {
     model <- step(lm(formula = lower_form, data = full_scaled_data),
                   scope = list(lower = lower_form, upper = upper_form),
@@ -114,7 +120,9 @@ hyperparam_fit <- function(inputs, model) {
 get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta = 0.1) {
   best_L <- -Inf
   best_sigma <- best_theta <- NULL
-  hs <- apply(inputs, 1, function(y) purrr::map_dbl(h, purrr::exec, y))
+  hs <- eval_funcs(h, inputs)
+  # if (length(h) == 1) hs <- apply(inputs, 1, function(y) purrr::exec(h[[1]], y))
+  # else hs <- apply(inputs, 1, function(y) purrr::map_dbl(h, purrr::exec, y))
   corr_func <- function(x, xp, theta, delta) {
     (1-delta) * exp(-sum((x-xp)^2/theta^2)) + ifelse(all(x == xp), delta, 0)
   }
@@ -124,11 +132,10 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta 
   t_list <- seq(theta_range[1], theta_range[2], length.out = n_ints)
   likelihood_list <- lapply(t_list, function(i) {
     cmat <- corr_matrix(inputs, i, delta)
-    cm <- minv(cmat)
-    #beta_est <- chol2inv(chol(hs %*% cm %*% t(hs))) %*% hs %*% cm %*% outputs
-    beta_est <- rep(0, nrow(hs))
-    var_est <- t(outputs - t(hs) %*% beta_est) %*% cm %*% (outputs - t(hs) %*% beta_est)
-    lik <- det(cmat)^(-1/2) * det(mmult(hs, mmult(cm, t(hs))))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
+    cm <- chol2inv(chol(cmat))
+    var_est <- t(outputs) %*% cm %*% outputs
+    if (is.null(nrow(hs))) lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% hs)^(-1/2) * var_est^(-(nrow(inputs)-1)/2)
+    else lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% t(hs))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
     return(list(L = lik, S = sqrt(var_est), Th = i))
   })
   liks <- purrr::map_dbl(likelihood_list, ~.$L)
@@ -223,6 +230,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
     ranges <- purrr::map(input_names, ~c(-1,1))
   }
   data <- cbind(eval_funcs(scale_input, input_data[,names(ranges)], ranges), input_data[,output_names])
+  if (!"data.frame" %in% class(data)) data <- setNames(data.frame(data), c(names(ranges), output_names))
   if (missing(beta) || missing(funcs)) {
     if (quadratic) {
       does_add <- (choose(length(input_names)+2, length(input_names)) > nrow(input_data))
@@ -257,9 +265,10 @@ emulator_from_data <- function(input_data, output_names, ranges,
     if (lik.method == "my") {
       residuals <- purrr::map(models, ~.$residuals)
       theta_range <- c(0.2, 2)
-      specs <- purrr::map(seq_along(residuals), ~get_likelihood(data[,input_names], residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
+      specs <- purrr::map(seq_along(residuals), ~get_likelihood(setNames(data.frame(data[,input_names]), input_names), residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
     }
     else {
+      data <- setNames(data.frame(data), c(input_names, output_names))
       specs <- purrr::map(seq_along(output_names), ~hyperparam_fit(data[,c(input_names, output_names[[.]])], models[[.]]))
     }
     model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))

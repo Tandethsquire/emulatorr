@@ -26,7 +26,7 @@ Emulator <- R6::R6Class(
     corr = NULL,
     o_em = NULL,
     output_name = NULL,
-    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL, out_name = NULL) {
+    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL, out_name = NULL, a_vars = NULL) {
       self$model <- model
       self$model_terms <- tryCatch(
         c("1", labels(terms(self$model))),
@@ -41,11 +41,14 @@ Emulator <- R6::R6Class(
       self$delta <- delta
       self$corr <- u$corr
       if (!is.null(out_name)) self$output_name <- out_name
-      self$active_vars <- purrr::map_lgl(seq_along(ranges), function(x) {
-        point_vec <- c(rep(0, x-1), 1, rep(0, length(ranges)-x))
-        func_vals <- purrr::map_dbl(self$basis_f, purrr::exec, point_vec)
-        sum(func_vals) > 1
-      })
+      if (is.null(a_vars)) {
+        self$active_vars <- purrr::map_lgl(seq_along(ranges), function(x) {
+          point_vec <- c(rep(0, x-1), 1, rep(0, length(ranges)-x))
+          func_vals <- purrr::map_dbl(self$basis_f, purrr::exec, point_vec)
+          sum(func_vals) > 1
+        })
+      }
+      else self$active_vars <- a_vars
       self$corr_func <- function(x, xp) {
         extra <- if(sum((x-xp)^2) > 1e-6) 0 else 1
         (1-delta) * self$corr(x[self$active_vars], xp[self$active_vars]) + delta * extra
@@ -61,6 +64,7 @@ Emulator <- R6::R6Class(
       if (!is.null(self$in_data)) {
         private$data_corrs <- chol2inv(chol(self$u_sigma^2 * apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y))))
         private$design_matrix <- t(apply(self$in_data, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x)))
+        if (nrow(private$design_matrix) == 1) private$design_matrix <- t(private$design_matrix)
         private$u_var_modifier <- private$data_corrs %*% private$design_matrix %*% self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
         private$u_exp_modifier <- private$data_corrs %*% (self$out_data - private$design_matrix %*% self$beta_mu)
         private$beta_u_cov_modifier <- self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
@@ -84,7 +88,8 @@ Emulator <- R6::R6Class(
       x <- data.matrix(x)
       ## Need to think about how Cov[beta, u] will change if we use derivatives.
       bu <- t(apply(x, 1, self$beta_u_cov))
-      beta_part <- g %*% self$beta_mu
+      if (length(self$beta_mu) == 1) beta_part <- g * self$beta_mu
+      else beta_part <- g %*% self$beta_mu
       u_part <- apply(x, 1, self$u_mu)
       if (!is.null(self$in_data)) {
         if (!is.null(p) && local.var) {
@@ -93,7 +98,11 @@ Emulator <- R6::R6Class(
         else {
           c_data <- apply(self$in_data, 1, function(y) apply(x, 1, self$corr_func, y))
         }
-        u_part <- u_part + (bu %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
+        if (length(self$beta_mu) == 1) {
+          u_part <- t(u_part + (t(bu) %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier)
+        }
+        else
+          u_part <- u_part + (bu %*% t(private$design_matrix) + self$u_sigma^2 * c_data) %*% private$u_exp_modifier
       }
       return(beta_part + u_part)
     },
@@ -147,7 +156,8 @@ Emulator <- R6::R6Class(
         else {
           x_xp_c <- apply(xp, 1, function(y) apply(x, 1, self$corr_func, y))
         }
-        beta_part <- t(g_x) %*% self$beta_sigma %*% g_xp
+        if (is.null(nrow(g_x))) beta_part <- g_x %*% self$beta_sigma %*% g_xp
+        else beta_part <- t(g_x) %*% self$beta_sigma %*% g_xp
         u_part <- self$u_sigma^2 * x_xp_c
         if (!is.null(self$in_data)) {
           if (!is.null(p) && local.var) {
@@ -165,12 +175,18 @@ Emulator <- R6::R6Class(
           u_part <- u_part - self$u_sigma^4 * c_x %*% (private$data_corrs - private$u_var_modifier) %*% t(c_xp)
           bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
           bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
+          if(is.null(nrow(g_x))) {
+            bupart_x <- c(bupart_x)
+            bupart_xp <- c(bupart_xp)
+          }
         }
-        bupart <- t(g_x) %*% bupart_xp + t(bupart_x) %*% g_xp
+        if (is.null(nrow(g_x))) bupart <- outer(g_x, bupart_xp, "*") + outer(bupart_x, g_xp, "*")
+        else bupart <- t(g_x) %*% bupart_xp + t(bupart_x) %*% g_xp
       }
       else {
         point_seq <- 1:nrow(x)
-        beta_part <- purrr::map_dbl(point_seq, ~g_x[,.] %*% self$beta_sigma %*% g_xp[,.])
+        if (is.null(nrow(g_x))) beta_part <- diag(diag(self$beta_sigma) * outer(g_x, g_xp))
+        else beta_part <- purrr::map_dbl(point_seq, ~g_x[,.] %*% self$beta_sigma %*% g_xp[,.])
         if (!is.null(p) && local.var) {
           if (p == pp)
             u_part <- self$u_sigma^2 * purrr::map_dbl(point_seq, ~(2/self$theta^2 - 4/self$theta^4 * (x[.,p] - xp[.,p])^2) * self$corr_func(x[.,], xp[.,]))
@@ -197,7 +213,8 @@ Emulator <- R6::R6Class(
           bupart_x <- bupart_x - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_x + self$u_sigma^2 * t(c_x))
           bupart_xp <- bupart_xp - private$beta_u_cov_modifier %*% (private$design_matrix %*% bupart_xp + self$u_sigma^2 * t(c_xp))
         }
-        bupart <- purrr::map_dbl(point_seq, ~t(purrr::map_dbl(self$basis_f, purrr::exec, x[.,])) %*% bupart_xp[,.x] + t(bupart_x[,.x] %*% purrr::map_dbl(self$basis_f, purrr::exec, xp[.,])))
+        if (is.null(nrow(g_x))) bupart <- purrr::map_dbl(point_seq, ~t(purrr::map_dbl(self$basis_f, purrr::exec, x[.,])) * bupart_xp[.] + t(bupart_x[.] * purrr::map_dbl(self$basis_f, purrr::exec, xp[.,])))
+        else bupart <- purrr::map_dbl(point_seq, ~t(purrr::map_dbl(self$basis_f, purrr::exec, x[.,])) %*% bupart_xp[,.x] + t(bupart_x[,.x] %*% purrr::map_dbl(self$basis_f, purrr::exec, xp[.,])))
       }
       final_out <- beta_part + u_part + bupart
       return(round(final_out,10))
@@ -226,7 +243,8 @@ Emulator <- R6::R6Class(
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
                              bucov = self$beta_u_cov, ranges = self$ranges, data = data[, c(names(self$ranges),out_name)],
-                             delta = self$delta, original_em = self, out_name = out_name, model = self$model)
+                             delta = self$delta, original_em = self, out_name = out_name, model = self$model,
+                             a_vars = self$active_vars)
       return(new_em)
     },
     get_hessian = function(x, local.var = TRUE) {

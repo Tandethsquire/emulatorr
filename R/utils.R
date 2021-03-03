@@ -15,8 +15,12 @@ scale_input <- function(x, r, forward = TRUE) {
     scales <- unlist(scales, use.names = F)
   }
   if (forward)
-    return((x-centers)/scales)
-  return(x*scales + centers)
+    output <- (x-centers)/scales
+  else
+    output <- x*scales + centers
+  if (!"data.frame" %in% class(output))
+    return(data.frame(output))
+  return(output)
 }
 
 # Helper to convert functions to names
