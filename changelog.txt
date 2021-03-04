@@ -1,4 +1,5 @@
 Changelog (Development Branch)
+04/03/2021 - v.0.7.1b. Bug fixes and stability: changes to generate_new_runs; support for 1d systems, and models whose regression surface is constant. Updated examples and documentation.
 
 01/03/2021 - v.0.7.1a. Bug fixes and stability improvements: particularly in IDEMC. Works with larger dimensional parameter spaces, and efficiencies applied.
 

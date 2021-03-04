@@ -314,7 +314,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
 
 # Line sampling
 line_sample <- function(ems, sample_points, z, ranges, nlines = 20, ppl = 26, cutoff = 3, nth = 1) {
-  if (nrow(sample_points < 2)) return(sample_points)
+  if (nrow(sample_points) < 2) return(sample_points)
   nlines <- min(nrow(sample_points)*(nrow(sample_points)-1)/2, nlines)
   if (ppl%%4 == 1) ppl <- ppl+1
   range_func <- function(x, ranges) {
