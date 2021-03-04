@@ -12,6 +12,7 @@ generate_new_runs(
   method = "importance",
   include_line = TRUE,
   cutoff = 3,
+  nth = 1,
   plausible_set,
   burn_in = FALSE,
   verbose = TRUE,
@@ -32,6 +33,8 @@ generate_new_runs(
 \item{include_line}{Should line sampling be applied after point generation? Default: TRUE.}
 
 \item{cutoff}{Optional. If z is given, this is the implausibility cutoff for the filtering. Default = 3}
+
+\item{nth}{Optiional. To be passed to the n parameter of nth implausible. Default = 1.}
 
 \item{plausible_set}{Optional - a set of non-implausible points from which to start.}
 
@@ -107,7 +110,8 @@ targets <- list(
 )
 non_imp_points <- GillespieImplausibility[GillespieImplausibility$I <= 4, names(ranges)]
 \donttest{
-pts_lhs <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3)
+pts_default <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3)
+pts_lhs <- generate_new_runs(trained_ems, ranges, 10, targets, cutoff = 3, method = 'lhs')
 pts_slice <- generate_new_runs(trained_ems, ranges, 10, targets,
  method = 'slice', cutoff = 4, plausible_set = non_imp_points, include_line = FALSE)
 pts_optical <- generate_new_runs(trained_ems, ranges, 10, targets,

@@ -273,7 +273,8 @@ emulator_from_data <- function(input_data, output_names, ranges,
     }
     model_u_sigmas <- purrr::map(specs, ~as.numeric(.$sigma))
     model_u_mus <- purrr::map(output_names, ~function(x) 0)
-    model_deltas <- purrr::map_dbl(specs, ~.$delta)
+    if(missing(deltas)) model_deltas <- purrr::map_dbl(specs, ~.$delta)
+    else model_deltas <- deltas
     if (missing(c_lengths)) c_lengths <- purrr::map(specs, ~as.numeric(.$theta))
     model_u_corr_funcs <- purrr::map(seq_along(output_names), ~function(x, xp) exp_sq(x, xp, c_lengths[[.]]))
   }

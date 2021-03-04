@@ -136,7 +136,7 @@ em$get_exp(sample_points) # Returns 16 expectations
 em$get_cov(sample_points) # Returns 16 variances
 sample_points_2 <- expand.grid(a = seq(-0.5, 0.5, length.out = 3),
  b = seq(-1, 2, length.out = 4))
-em$get_cov(sample_points, sample_points_2, full = TRUE) # Returns a 16x12 matrix of covariances
+em$get_cov(sample_points, xp = sample_points_2, full = TRUE) # Returns a 16x12 matrix of covariances
 
 b_u_cov <- function(x) c(1, x[[1]], x[[1]]*x[[2]])
 del <- 0.1
