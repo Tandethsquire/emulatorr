@@ -30,7 +30,7 @@ space_removed(
 \item{modified}{What parameter should be varied in the analysis?}
 }
 \value{
-A list of two \code{data.frame}s, one for removed space and one for misclassifications.
+A ggplot object corresponding to the plot.
 }
 \description{
 Finds the proportion of space removed as a function of implausibility cut-off, and of structural

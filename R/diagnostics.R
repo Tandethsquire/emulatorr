@@ -358,7 +358,7 @@ visualisation_plot <- function(ems, input_points, output_names) {
 #' @param intervals The set of implausibility cut-offs to consider.
 #' @param modified What parameter should be varied in the analysis?
 #'
-#' @return A list of two \code{data.frame}s, one for removed space and one for misclassifications.
+#' @return A ggplot object corresponding to the plot.
 #' @export
 #'
 #' @examples
@@ -441,8 +441,8 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
     ) +
     labs(title = paste("Space removed as a function of implausibility cut-off and", tit), colour = subtit, x = "Cut-off", y = "% removed") +
     theme_minimal()
-  print(g)
-  return(df1)
+  return(g)
+  #return(df1)
   #return(list(reduced = df1, misclassed = df2))
 }
 
