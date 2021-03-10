@@ -114,7 +114,11 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
       if (var_name == 'exp') nm <- 'E[f(x)]'
       else if (var_name == 'var') nm <- 'Var[f(x)]'
       else nm <- 'SD[f(x)]'
-      bin_vals <- unique(floor(seq(min(0,min(data_grid[,var_name])), ceiling(max(data_grid[,var_name])), length.out = 15)))
+      max_val <- max(data_grid[,var_name])
+      min_val <- min(data_grid[,var_name])
+      rounding <- if (max_val - min_val != 0) abs(floor(log10(max_val - min_val)) - 2) else 4
+      #bin_vals <- unique(floor(seq(min(0,min(data_grid[,var_name])), ceiling(max(data_grid[,var_name])), length.out = 15)))
+      bin_vals <- c(unique(round(seq(min(0, min(data_grid[,var_name])), max(data_grid[,var_name]), length.out = 15), rounding)), 2*max_val)
       g <- g +
         geom_contour_filled(aes(z = data_grid[,var_name]), breaks = bin_vals, colour = 'black') +
         scale_fill_viridis(discrete = TRUE, option = cols, name = nm, labels = bin_vals)
@@ -173,7 +177,9 @@ emulator_plot <- function(em, var_name = 'exp', npoints = 40, targets = NULL, cb
     if (var_name == 'exp' || var_name == 'var' || var_name == 'sd') {
       max_val <- max(data_grid$value)
       min_val <- min(data_grid$value)
-      bin_vals <- unique(floor(seq(min(0,min(data_grid$value)), ceiling(max(data_grid$value)), length.out = 15)))
+      rounding <- if (max_val - min_val != 0) abs(floor(log10(max_val - min_val)) - 2) else 4
+      #bin_vals <- unique(floor(seq(min(0,min(data_grid$value)), ceiling(max(data_grid$value)), length.out = 15)))
+      bin_vals <- c(unique(round(seq(min(0, min(data_grid$value)), max(data_grid$value), length.out = 15), rounding)), 2*max_val)
       g <- g + geom_contour_filled(aes(z = data_grid[,'value']), breaks = bin_vals, colour = 'black')
       ifelse(var_name == 'exp', col <- 'magma', col <- 'plasma')
       if (var_name == 'exp') nm <- 'E[f(x)]' else if (var_name == 'var') nm <- 'Var[f(x)]' else nm <- 'SD[f(x)]'
