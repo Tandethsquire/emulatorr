@@ -1,0 +1,383 @@
+---
+title: "Low-dimensional Emulation Examples"
+author: Andy Iskauskas
+date: 08/03/2021
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Low-dimensional-examples}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(emulatorr)
+library(lhs)
+library(ggplot2)
+set.seed(125)
+```
+
+# One-dimensional Example: Sine function
+
+## Setup
+
+We first look at the simplest possible example: a single univariate function. We will take the following sine function:
+
+\(f(x) = 3x\sin\left(\frac{5\pi(x-0.1)}{0.4}\right).\)
+
+This should demonstrate the main features of emulation and history matching over a couple of waves. The other advantage about using such a simple function (in this case as well as the later, 2-dimensional, case) is that the function can be evaluated quickly, so we can compare the emulator performance against the actual function very easily.
+
+```{r}
+func <- function(x) {
+  2*x + 3*x*sin(5*pi*(x-0.1)/0.4)
+}
+```
+
+We will presume that we want to emulate this function over the input range $x\in[0,0.6]$. To train an emulator to this function, we require a set of known points. We'll evaluate at equally spaced-out points along the parameter range: $10$ points will be ample for training a one-dimensional emulator.
+
+```{r}
+data1d <- data.frame(x = seq(0.05, 0.5, by = 0.05), f = func(seq(0.05, 0.5, by = 0.05)))
+```
+
+These points will be passed to the emulator package, in order for it to train an emulator to the function `func`, interpolate points between the data points above, and propose a new set of points for training a second-wave emulator.
+
+## Emulator Training
+
+To train the emulator, we first define the ranges of the parameters. Then we can use the function `emulator_from_data` to gain prior specifications for the emulation; following this we train the emulator using the training data with the Bayes Linear update formulae. For an introduction on how the emulators are structured, consult the section 'The Structure of a Bayes Linear Emulator' at the bottom of the document.
+
+The function `emulator_from_data` requires at least three things: the data, the name(s) of the outputs to emulate, and the ranges of the input parameters. We will define the ranges, as they will be used frequently.
+
+```{r}
+ranges1d <- list(x = c(0, 0.6))
+pre_em1d <- emulator_from_data(data1d, c('f'), ranges1d, deltas = 0)
+print(pre_em1d)
+```
+
+The print statement shows us the specifications that have been decided upon. The emulator is inside a list of one element, which seems pointless here but generalises for multi-output emulation.
+There are two things that are specific to this one-dimensional example. One thing to note is that the best fitting regression surface is constant (shown in the Basis function argument, and the fact that the Active variables argument is empty). This should not be surprising given that this is a sine function. However, we know that there will be local variation depending on the value of $x$, so we will manually inform the emulator that $x$ is an active variable:
+
+```{r}
+pre_em1d[[1]]$active_vars <- c(TRUE)
+```
+
+We also note that an extra parameter has been provided to `emulator_from_data`: `deltas = 0`. A discussion of the $\delta$ parameter is perhaps beyond the scope of this example, but it plays an important role in regularising covariance matrices in higher dimensions.
+
+Having defined an emulator with the required prior specifications, we can use the `adjust` function to update it:
+
+```{r}
+t_em1d <- pre_em1d[[1]]$adjust(data1d, 'f')
+```
+
+This trained emulator takes into account the fact that we know the values at the 10 points in the dataset. Correspondingly, the variance at these ten points is $0$ and the expectation exactly matches the function value (up to numerical precision).
+
+```{r}
+t_em1d$get_cov(data1d)
+t_em1d$get_exp(data1d) - data1d$f
+```
+
+We can use this trained emulator to predict the value at many points along the input range. Let's define a large set of points to evaluate at, and get the emulator expectation and variance at each of these points.
+
+```{r}
+test_points <- data.frame(x = seq(0, 0.6, by = 0.001))
+em_exp <- t_em1d$get_exp(test_points)
+em_var <- t_em1d$get_cov(test_points)
+```
+
+Because in this particular example the function to emulate is straightforward to evaluate, we will put all the test points into the actual function too. We create a data.frame with everything we need for plotting.
+
+```{r}
+plotting1d <- data.frame(
+  x = test_points$x,
+  f = func(test_points$x),
+  E = em_exp,
+  max = em_exp + 3*sqrt(em_var),
+  min = em_exp - 3*sqrt(em_var)
+)
+```
+
+We now plot a set of items: the actual function (in black), the emulator expectation for the function (in blue), and $3\sigma$ uncertainty bounds corresponding to the emulator variance. We also plot the locations of the training points to demonstrate the vanishing variance at those points.
+
+```{r fig.width = 7, fig.height = 7}
+plot(data = plotting1d, f ~ x, ylim = c(min(plotting1d[,-1]), max(plotting1d[,-1])),
+     type = 'l', main = "Emulation of a Simple 1-dimensional Function", xlab = "Parameter value", ylab = "Function value")
+lines(data = plotting1d, E ~ x, col = 'blue')
+lines(data = plotting1d, min ~ x, col = 'red', lty = 2)
+lines(data = plotting1d, max ~ x, col = 'red', lty = 2)
+points(data = data1d, f ~ x, pch = 16, cex = 1)
+legend('bottomleft', inset = c(0.05, 0.05), legend = c("Function value", "Emulated value", "Uncertainty Bounds"),
+       col = c('black', 'blue', 'red'), lty = c(1,1,2))
+```
+
+We can note a few things from this plot. Firstly, the emulators do exactly replicate the function at the points used to train it (the black dots). The variance increases the further away we get from a 'known' point, and indeed the emulator expectation starts to deviate from the actual function value. However, note that the actual value (the black line) never falls outside the $3\sigma$ bounds given by the emulator variance.
+
+## History Matching
+
+We have a trained emulator, which we can see performs well over the region of interest. Now suppose that we want to find input points which result in a given output value. Obviously, with this function we can easily do this either analytically or numerically, but for complex simulations and models this is simply not possible. We therefore follow the history matching approach.
+
+History Matching has the following steps:
+- Train emulators on points in the target space;
+- Use these emulators to rule out regions of parameter space that definitely do not produce the desired output value;
+- Sample a new set of points from the remaining space;
+- Input these new points into the model to obtain a new training set.
+
+These four steps are repeated until either 1) We have a suitably large set of points that produce the desired output (the definition of 'suitably large' depending on the application); 2) The whole parameter space has been ruled out; 3) The emulators are just about as confident evaluating the whole parameter space as the model itself.
+
+Here, we will not worry about these stopping conditions and just continue the steps of history matching to two full waves. The first thing we need is a target value: let's suppose we want to find points $x$ such that $f(x)=0$, plus or minus $0.05$. Then we define our target as follows:
+
+```{r}
+target1d <- list(f = list(val = 0, sigma = 0.05))
+```
+
+Again, the use of a list of lists is to ensure it generalises to multiple outputs.
+
+We use `generate_new_runs` to propose new points:
+
+```{r}
+new_points1d <- generate_new_runs(list(t_em1d), ranges1d, 10, target1d, method = 'lhs', include_line - FALSE)
+```
+
+There are a couple of additional parameters here that are optional. The important parameters are the emulator(s), the parameter ranges, the number of points desires, and the target value(s).
+
+Having obtained these new points, let's include them on our plot to demonstrate the emulator's logic.
+
+```{r fig.width = 7, fig.height = 7}
+plot(data = plotting1d, f ~ x, ylim = c(min(plotting1d[,-1]), max(plotting1d[,-1])),
+     type = 'l', main = "Emulation of a Simple 1-dimensional Function", xlab = "Parameter value", ylab = "Function value")
+lines(data = plotting1d, E ~ x, col = 'blue')
+lines(data = plotting1d, min ~ x, col = 'red', lty = 2)
+lines(data = plotting1d, max ~ x, col = 'red', lty = 2)
+points(data = data1d, f ~ x, pch = 16, cex = 1)
+legend('bottomleft', inset = c(0.05, 0.05), legend = c("Function value", "Emulated value", "Uncertainty Bounds"),
+       col = c('black', 'blue', 'red'), lty = c(1,1,2))
+abline(h = target1d$f$val, lty = 2)
+abline(h = target1d$f$val + 3*target1d$f$sigma, lty = 2)
+abline(h = target1d$f$val - 3*target1d$f$sigma, lty = 2)
+points(x = unlist(new_points1d, use.names = F), y = func(unlist(new_points1d, use.names = F)), pch = 16, col = 'blue')
+```
+
+
+There is a crucial point here. While the emulator has proposed points that lie in the desired range (particularly on the left hand side of the interval), it has also proposed points that certainly do not lie in the range. However, at these points the range is contained within the band given by the emulator uncertainty bounds! Because the emulator has such high variance at these points, it cannot rule out this region as infeasible and therefore proposes points there. *The key part of history matching is that parameter space is only ruled out if we are sure that it can be ruled out*. However, the fact that we have proposed points in this region means that the second wave emulator will be much more certain about the function value in the region, and so we would expect that the second wave emulator will rule it out quickly.
+
+## Second Wave
+
+The second wave is very similar to the first one, so there will be minimal commenting here except to make important points.
+
+```{r fig.width = 7, fig.height = 7}
+new_data1d <- data.frame(x = unlist(new_points1d, use.names = F), f = func(unlist(new_points1d, use.names = F)))
+
+em1d_2 <- emulator_from_data(new_data1d, c('f'), ranges1d, deltas = 0)
+em1d_2[[1]]$active_vars = c(TRUE)
+
+t_em1d_2 <- purrr::map(seq_along(em1d_2), ~em1d_2[[.]]$adjust(new_data1d, 'f'))
+
+em1d_2_results <- data.frame(E = t_em1d_2[[1]]$get_exp(test_points), V = t_em1d_2[[1]]$get_cov(test_points))
+plotting1d2 <- data.frame(x = plotting1d$x, f = plotting1d$f, E = em1d_2_results$E,
+                          max = em1d_2_results$E + 3*sqrt(em1d_2_results$V),
+                          min = em1d_2_results$E - 3*sqrt(em1d_2_results$V))
+plot(data = plotting1d2, f ~ x, ylim = c(min(plotting1d2[,-1]), max(plotting1d2[,-1])),
+     type = 'l', main = "Emulator of a Simple 1-dimensional Function: Wave 2", xlab = "Parameter value", ylab = "Function value")
+lines(data = plotting1d2, E ~ x, col = 'blue')
+lines(data = plotting1d2, max ~ x, col = 'red', lty = 2)
+lines(data = plotting1d2, min ~ x, col = 'red', lty = 2)
+points(data = new_data1d, f ~ x, pch = 16, cex = 1)
+legend('topleft', inset = c(0.05, 0.05), legend = c("Function value", "Emulated value", "Uncertainty Bounds"), col = c('black', 'blue', 'red'), lty = c(1,1,2))
+
+```
+
+This plot underlines the importance of using all waves of emulation. The first wave is trained over the entire space, and so gives a moderately confident estimate of the true function value on the interval $[0, 0.6]$. The second-wave emulator is trained only on regions that we need to be more certain of: it therefore does not have the information about any parts of the space for which it was not given points (the central region, here). So in this wave of history matching, we must use both the wave-1 and wave-2 emulators to propose points.
+
+```{r, fig.width = 7, fig.height = 7}
+new_new_points1d <- generate_new_runs(c(t_em1d_2, t_em1d), ranges1d, 10, z = c(target1d, target1d), method = 'lhs', include_line = F)
+
+plot(data = plotting1d2, f ~ x, ylim = c(min(plotting1d2[,-1]), max(plotting1d2[,-1])),
+     type = 'l', main = "Emulator of a Simple 1-dimensional Function: Wave 2", xlab = "Parameter value", ylab = "Function value")
+lines(data = plotting1d2, E ~ x, col = 'blue')
+lines(data = plotting1d2, max ~ x, col = 'red', lty = 2)
+lines(data = plotting1d2, min ~ x, col = 'red', lty = 2)
+points(data = new_data1d, f ~ x, pch = 16, cex = 1)
+legend('topleft', inset = c(0.05, 0.05), legend = c("Function value", "Emulated value (wave 2)", "Uncertainty Bounds"), col = c('black', 'blue', 'red'), lty = c(1,1,2))
+abline(h = target1d$f$val, lty = 2)
+abline(h = target1d$f$val + 3*target1d$f$sigma, lty = 2)
+abline(h = target1d$f$val - 3*target1d$f$sigma, lty = 2)
+points(x = unlist(new_new_points1d, use.names = F), y = func(unlist(new_new_points1d, use.names = F)), pch = 16, col = 'blue')
+```
+
+# Two-dimensional example
+We will now look at a slightly higher-dimensional example, in order to look at emulator diagnostics and some more interesting plots. Consider a two-dimensional input space and output space as follows:
+
+\(f_1(x) = 2\cos(1.2x-2) + 3\sin(-0.8y+1)\)
+\(f_2(x) = y\sin x-3\cos(xy)\)
+
+The associated ranges for the input parameters are $x\in[-\pi,\pi]$ and $y\in[-1, 1]$. We define these functions and generate two sets of data: one for training the emulators and one for validating them:
+
+```{r}
+func1 <- function(x) {
+  2*cos(1.2*x[[1]]-2) + 3*sin(-0.8*x[[2]]+1)
+}
+func2 <- function(x) {
+  x[[2]]*sin(x[[1]]) - 3*cos(x[[1]]*x[[2]])
+}
+initial_data <- setNames(data.frame(sweep(maximinLHS(20, 2) - 1/2, 2, c(pi, 2), "*")), c('x', 'y'))
+validation_data <- setNames(data.frame(sweep(maximinLHS(20, 2) - 1/2, 2, c(pi, 2), "*")), c('x', 'y'))
+initial_data$f1 <- apply(initial_data, 1, func1)
+initial_data$f2 <- apply(initial_data, 1, func2)
+validation_data$f1 <- apply(validation_data, 1, func1)
+validation_data$f2 <- apply(validation_data, 1, func2)
+```
+
+Here, we're using the `lhs` package to generate a space-filling design over the input space. We want the points we use to train the emulators to be as representative of the space as possible, and the `lhs` package tries to generate an orthogonal design of points whose smallest separation is as large as possible (hence maximin). As in the one-dimensional case, we define the parameter ranges, and we also want to define some target output values. We will take the desired target values to be those given when $x=0.1, y=0.4$.
+
+```{r}
+ranges2d <- list(
+  x = c(-pi, pi),
+  y = c(-1, 1)
+)
+targets2d <- list(
+  f1 = list(val = func1(c(0.1, -0.4)), sigma = 0.1),
+  f2 = list(val = func2(c(0.1, -0.4)), sigma = 0.005)
+)
+```
+
+We've put a much tighter bound on the output of $f_2$, expecting that this target will be harder to hit.
+
+We can construct some prior emulators, and train them to the training data, in much the same way as in the one-dimensional case:
+
+```{r}
+ems2d <- emulator_from_data(initial_data, c('f1','f2'), ranges2d)
+t_ems2d <- purrr::map(seq_along(ems2d), ~ems2d[[.]]$adjust(initial_data, c('f1','f2')[[.]]), lik.method = 'my')
+ems2d
+```
+Both the emulators have $x$ and $y$ as active variables, as we'd expect. Furthermore, the second of the emulators has identified the combination $xy$ as being worthy of including as an interaction term in the regression model, again as we'd expect.
+
+We want to check that these emulators are fit for purpose, in a number of ways:
+- We want the emulator prediction to 'match' the model prediction; by which we wouldn't expect the emulator prediction to be more than $3\sigma$ away from the model prediction in the regions that matter.
+- In general, we want the standardised errors of the emulator predictions relative to the model predictions to be not too large, but not too small. Large errors imply that the emulators are doing a bad job of fitting to validation points; consistently small errors imply that the emulators are underconfident and thus makes the wave of emulation less valuable for cutting out space.
+- We want to ensure that the emulators do not rule out any regions of space that the model would not. The converse is okay, and indeed expected (the emulators are going to be more conservative about ruling out points), but the emulators should absolutely not rule out regions of space that may be valid.
+
+These three tests are encompassed in `validation_diagnostics`, which gives the corresponding plots for each emulator.
+
+```{r, fig.width = 7, fig.height = 7}
+invalid_points <- validation_diagnostics(t_ems2d, validation_data, c('f1','f2'), targets = targets2d)
+```
+
+We can see from the plots that the emulators are doing about as well as could be expected at a first wave. In the first and third column, any problem points (that is, points that fail the tests) are highlighted in red: the absence of any such points is a good sign. Were there any such points, we would have to carefully consider how to mitigate against these (often by manually changing the prior emulator specifications). For instance, if the second emulator is not performing satisfactorily, we could inflate the emulator variance:
+
+```{r fig.width = 7, fig.height = 7}
+inflated_em <- t_ems2d[[2]]$set_sigma(t_ems2d[[2]]$u_sigma*2)
+validation_diagnostics(list(t_ems2d[[1]], inflated_em), validation_data, c('f1','f2'), targets = targets2d)
+```
+
+In this case, such tinkering is not required.
+
+## Emulator Plots
+
+The `emulatorr` package allows us to produce plots analogous to those we made by hand in the one-dimensional case. The corresponding plots are counter plots over the region.
+
+```{r fig.width = 7, fig.height = 7}
+emulator_plot(t_ems2d)
+emulator_plot(t_ems2d, var_name = 'sd')
+emulator_plot(t_ems2d, var_name = 'imp', targets = targets2d)
+emulator_plot(t_ems2d, var_name = 'maximp', targets = targets2d)
+```
+
+The first two plots are the emulator expectation (the black line from the one-dimensional plots) and the emulator uncertainty (the dotted red lines from the 1d plots). The remaining two plots relate to how the emulators determine suitability of new points. The emulator implausibility for a point $x$, given a target $z$, is determined by the following expression:
+
+\(I(x)^2 = \frac{(\mathbb{E}[f(x)]-z)^2}{\text{Var}[f(x)] + \sigma^2}.\)
+
+Here $\mathbb{E}[f(x)]$ is the emulator expectation at the point, $\text{Var}[f(x)]$ is the emulator variance, and $\sigma^2$ corresponds to all other sources of uncertainty outside of the emulators (e.g. observation error, model discrepancy, ...). The smaller the implausibility at a given point, the more likely an emulator is to propose it as a new point. We can note that there are two reasons that implausibility might be small: either the numerator is small (in which case the difference between the emulator prediction and the target value is small, implying a 'good' point) or the denominator is large (in which case the point is in a region of parameter space that the emulator is uncertain about). Both are useful: the first for obvious reasons; the second because proposing points in such regions will make subsequent waves of emulators more certain about that region and thus allow us to reduce the allowed parameter space.
+
+Of course, we want proposed points to give acceptable values for both $f_1$ and $f_2$. The final plot gives maximum implausibility, which is simply
+
+\(\max_{i} \{I_i(x)\}_{i=1}^{N},\)
+
+where $I_i(x)$ is the implausibility given by the $i$th emulator, and $N$ is the number of outputs.
+
+We can already see that the first emulator is going to drive the choice of proposed points, by comparing the individual implausibility plots and the maximum implausibility plot. We will now generate new points for a second wave of emulation.
+
+```{r fig.width = 7, fig.height = 7}
+new_points2d <- generate_new_runs(t_ems2d, ranges2d, 40, z = targets2d)
+new_data2d <- data.frame(x = new_points2d$x, y = new_points2d$y, f1 = apply(new_points2d, 1, func1), f2 = apply(new_points2d, 1, func2))
+plot(new_data2d[,c('x','y')], pch = 16, cex = 0.5)
+```
+
+Given these new points, we can train a new set of emulators. We have generated $40$ points from `generate_new_runs` because we again want to split into a training set and a validation set.
+
+```{r}
+sampled <- sample(40, 20)
+train2d <- new_data2d[sampled,]
+valid2d <- new_data2d[!seq_along(new_data2d[,1])%in%sampled,]
+```
+
+Then we train the new set of emulators using `emulator_from_data` and `train2d`
+
+```{r}
+second_wave2d <- emulator_from_data(train2d, c('f1','f2'), ranges2d, lik.method = 'my')
+second_wave2d
+second_tems2d <- purrr::map(seq_along(second_wave2d), ~second_wave2d[[.]]$adjust(train2d, c('f1','f2')[[.]]))
+```
+
+Note that the variance of both emulators has reduced drastically, as we'd expect. Again, we can check the performance through emulator diagnostics:
+
+```{r fig.width = 7, fig.height = 7}
+invalid_points <- validation_diagnostics(second_tems2d, valid2d, c('f1','f2'), targets = targets2d)
+```
+Again, we can plot the emulator results: here, we will only plot the maximum implausibility for demonstration. We will also look at maximum implausibility across both waves, as this is what we use to propose points:
+
+```{r fig.width = 7, fig.height = 7}
+emulator_plot(second_tems2d, 'maximp', targets = targets2d)
+emulator_plot(c(t_ems2d, second_tems2d), 'maximp', targets = c(targets2d, targets2d))
+```
+
+And finally, we can propose points from this wave. We order the combination of the first and second wave emulators with the newest wave first, as this will be more restrictive.
+
+```{r fig.width = 7, fig.height = 7}
+new_points2d2 <- generate_new_runs(c(second_tems2d, t_ems2d), ranges2d, 40, z = c(targets2d, targets2d))
+plot(new_points2d2, pch = 16, cex = 0.5)
+```
+
+For completeness, we will obtain the function values for these new points:
+
+```{r}
+new_new_data2d <- data.frame(x = new_points2d2$x, y = new_points2d2$y, f1 = apply(new_points2d2, 1, func1), f2 = apply(new_points2d2, 1, func2))
+```
+
+It is useful to actually look at the behaviour of the proposed points as we progress down the waves of emulation. The function `simulator_plot` does exactly that.
+
+```{r fig.width = 7, fig.height = 7}
+wave_data_list <- list(rbind(initial_data, validation_data), new_data2d, new_new_data2d)
+simulator_plot(wave_data_list, z = targets2d)
+my_palette <- c('black', 'blue', 'red')
+simulator_plot(wave_data_list, z = targets2d, wave_numbers = 1:2, palette = my_palette)
+```
+
+There is a clear trend towards more and more accurately proposed points.
+
+### The Structure of a Bayes Linear Emulator
+
+The basic structure of an emulator $f(x)$ is
+
+\(f(x) = \sum_i \beta_i h_i(x) + u(x),\)
+
+where the first term represents a regression surface (encapsulating the global behaviour of the function), and the second term accounts for local variations by defining an correlation structure on the space (more of which later). Our prior beliefs about the emulator must be specified. We need only second-order specifications (expectation and variance), so one can see that we must specifiy the following:
+- A set of basis functions, $h(x)$;
+- The second-order specifications for the coefficients $\beta$: namely the expectation and the variance $\mathbb{E}[\beta]$ and $\text{Var}[\beta]$;
+- The second order specifications for the correlation structure: $\mathbb{E}[u(x)]$ and $\text{Var}[u(x)]$;
+- The covariance between the coefficients and the correlation structure: $\text{Cov}[\beta, u(x)]$.
+We could specify all of these things by hand; however, many of the parts of the above specification can be estimated quite readily automatically. The function `emulator_from_data` does exactly that, with a few assumptions. It assumes no covariance between the regression surface and the correlation structure, that the expectation of $u(x)$ is $0$, and that the variance of the coefficients $\beta$ is $0$ (i.e. that the regression surface is fixed and known); it also assumes that the correlation structure has an exponential-squared form. For two points $x$ and $x^\prime$, the correlation between them is
+
+\(c(x,x^\prime) = \exp\left\{\frac{-(x-x^\prime)^2}{\theta^2}\right\}.\)
+
+The closer two points are together, the higher their correlation; the parameter $\theta$ is known as a correlation length. The larger $\theta$, the larger the extent of the correlation between distant points. The `emulator_from_data` function also attempts to estimate the value of $\theta$.
+### Bayes Linear Updates
+The above analysis gives us a set of prior specifications for the emulator. However, it has not used all the information available from the training data. We can update our second-order beliefs with the *Bayes Linear Update Equations* - given data $D$ and prior specifications $\mathbb{E}[f(x)]$ and $\text{Var}[f(x)]$ for the emulator, the adjusted expectation and variance are
+
+\(\mathbb{E}_D[f(x)] = \mathbb{E}[f(x)] + \text{Cov}[f(x), D]\text{Var}[D]^{-1}(D-\mathbb{E}[D]),\)
+\(\text{Var}_D[f(x)] = \text{Var}[f(X)] - \text{Cov}[f(x), D]\text{Var}[D]^{-1}\text{Cov}[D, f(x)].\)
+
+For details of the Bayes Linear Framework, see eg Bayes Linear Statistics (Goldstein & Wooff).
