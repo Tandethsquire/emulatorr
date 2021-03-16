@@ -135,7 +135,12 @@ wave_variance <- function(waves, output_names, plot_dirs = names(waves[[1]][[1]]
     if (x %in% plot_dirs) main_ranges[[x]]
     else rep((main_ranges[[x]][1]+main_ranges[[x]][2])/2, 2)
   })) %>% setNames(names(main_ranges))
-  on_grid <- unique(setNames(expand.grid(purrr::map(grid_ranges, ~seq(.[[1]], .[[2]], length.out = n_points))), names(main_ranges)))
+  on_grid <- setNames(expand.grid(seq(grid_ranges[[plot_dirs[1]]][[1]], grid_ranges[[plot_dirs[1]]][[2]], length.out = n_points),
+                                  seq(grid_ranges[[plot_dirs[2]]][[1]], grid_ranges[[plot_dirs[2]]][[2]], length.out = n_points)),
+                      plot_dirs)
+  for (i in names(grid_ranges)) {
+    if (!i %in% plot_dirs) on_grid[,i] <- grid_ranges[[i]][1]
+  }
   output <- purrr::map(output_names, ~setNames(cbind(on_grid, data.frame(purrr::map(waves[wave_numbers], function(x) {
     if (!sd) x[[.]]$get_cov(on_grid)
     else sqrt(x[[.]]$get_cov(on_grid))
