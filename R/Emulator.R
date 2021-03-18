@@ -58,7 +58,7 @@ Emulator <- R6::R6Class(
       if (is.null(ranges)) stop("Ranges for the parameters must be specified.")
       self$ranges <- ranges
       if (!is.null(data)) {
-        self$in_data <- data.matrix(scale_input(data[,names(self$ranges)], self$ranges))
+        self$in_data <- data.matrix(eval_funcs(scale_input, data[,names(self$ranges)], self$ranges))
         self$out_data <- data[, !(names(data) %in% names(self$ranges))]
       }
       if (!is.null(self$in_data)) {
@@ -76,7 +76,7 @@ Emulator <- R6::R6Class(
         p = NULL
       }
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- scale_input(x, self$ranges)
+      x <- eval_funcs(scale_input, x, self$ranges)
       if (is.null(p)) {
         g <- t(apply(x, 1, function(y) purrr::map_dbl(self$basis_f, purrr::exec, y)))
       }
@@ -113,7 +113,7 @@ Emulator <- R6::R6Class(
         p = NULL
       }
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- scale_input(x, self$ranges)
+      x <- eval_funcs(scale_input, x, self$ranges)
       if (!is.null(p)) {
         if (is.null(pp)) pp <- p
         if (!p %in% names(self$ranges) || !pp %in% names(self$ranges)) {
@@ -138,7 +138,7 @@ Emulator <- R6::R6Class(
       }
       else {
         if (!is.null(p)) {
-          xp <- scale_input(xp, self$ranges)
+          xp <- eval_funcs(scale_input, xp, self$ranges)
           g_xp <- t(matrix(unlist(do.call('rbind', purrr::map(seq_along(xp[,1]), function(y) purrr::map(gp_d, ~eval(., envir = xp[y,]))))), nrow = nrow(xp)))
         }
         else {
@@ -228,7 +228,7 @@ Emulator <- R6::R6Class(
       return(imp<=cutoff)
     },
     adjust = function(data, out_name) {
-      this_data_in <- data.matrix(scale_input(data[,names(self$ranges)], self$ranges))
+      this_data_in <- data.matrix(eval_funcs(scale_input, data[,names(self$ranges)], self$ranges))
       this_data_out <- data[,out_name]
       if (all(eigen(self$beta_sigma)$values == 0)) {
         new_beta_var = self$beta_sigma
@@ -250,7 +250,7 @@ Emulator <- R6::R6Class(
     },
     get_hessian = function(x, local.var = TRUE) {
       x <- x[, names(x) %in% names(self$ranges)]
-      x <- scale_input(x, self$ranges)
+      x <- eval_funcs(scale_input, x, self$ranges)
       result <- do.call('rbind', purrr::map(names(self$ranges), function(p1) {
         purrr::map_dbl(names(self$ranges), function(p2) {
           g_d <- purrr::map(self$model_terms, ~D(D(parse(text = sub("I\\((\\w*\\^\\d*)\\)", "\\1", gsub(":", "*", .))), p1),p2))
@@ -285,7 +285,19 @@ Emulator <- R6::R6Class(
       }
       new_o_em <- self$o_em$clone()
       new_o_em$u_sigma <- sigma
-      dat <- setNames(data.frame(cbind(self$in_data, self$out_data)), c(names(self$ranges), self$output_name))
+      dat <- setNames(data.frame(cbind(eval_funcs(scale_input, data.frame(self$in_data), self$ranges, FALSE), self$out_data)), c(names(self$ranges), self$output_name))
+      return(new_o_em$adjust(dat, self$output_name))
+    },
+    ## This will not work properly if the correlation structure isn't exp_sq
+    set_theta = function(theta) {
+      if(is.null(self$o_em)) {
+        new_em <- self$clone()
+        new_em$corr <- function(x, xp) exp_sq(x, xp, theta)
+        return(new_em)
+      }
+      new_o_em <- self$o_em$clone()
+      new_o_em$corr <- function(x, xp) exp_sq(x, xp, theta)
+      dat <- setNames(data.frame(cbind(eval_funcs(scale_input, data.frame(self$in_data), self$ranges, FALSE), self$out_data)), c(names(self$ranges), self$output_name))
       return(new_o_em$adjust(dat, self$output_name))
     },
     print = function(...) {

@@ -18,7 +18,7 @@ emulator_from_data(
   ev,
   quadratic = TRUE,
   beta.var = FALSE,
-  lik.method = "nl"
+  lik.method = "my"
 )
 }
 \arguments{

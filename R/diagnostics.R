@@ -387,15 +387,13 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
     modified = 'disc'
   }
   if (modified == 'disc') {
-    em_exps <- data.frame(purrr::map(emulators, ~.$get_exp(on_grid)))
-    em_vars <- data.frame(purrr::map(emulators, ~.$get_cov(on_grid)))
+    em_exps <- do.call('cbind', purrr::map(emulators, ~.$get_exp(on_grid)))
+    em_vars <- do.call('cbind', purrr::map(emulators, ~.$get_cov(on_grid)))
     #valid_exps <- data.frame(purrr::map(emulators, ~.$get_exp(validation_points[,in_names])))
     #valid_vars <- data.frame(purrr::map(emulators, ~.$get_cov(validation_points[,in_names])))
     #misclass_arr <- array(0, dim = c(length(intervals), length(u_mod)))
     for (i in u_mod) {
-      num <- data.frame(t(apply(em_exps, 1, function(x) abs(x - z_vals))))
-      denom <- data.frame(t(apply(em_vars, 1, function(x) sqrt(x + (i * z_sigs)^2))))
-      imps <- num/denom
+      imps <- abs(sweep(em_exps, 2, z_vals, "-"))/sqrt(sweep(em_vars, 2, (i*z_sigs)^2, "+"))
       m_imps <- apply(imps, 1, max)
       cutoff <- purrr::map_dbl(intervals, ~1-length(m_imps[m_imps <= .])/length(m_imps))
       #em_imps <- abs(valid_exps - z_vals)/sqrt(valid_vars + (z_sigs * i)^2)
@@ -410,9 +408,7 @@ space_removed <- function(emulators, validation_points, z, n_points = 10, u_mod 
       if (modified == 'var')
         ems <- purrr::map(emulators, ~.$set_sigma(i*.$u_sigma))
       else {
-        ems <- purrr::map(emulators, ~.$o_em$clone())
-        for (j in 1:length(ems)) ems[[j]]$corr <- function(x, xp) exp_sq(x, xp, i*ems[[j]]$theta) ## This will only work if the correlation function WAS exp_sq!!
-        ems <- purrr::map(seq_along(ems), ~ems[[.]]$adjust(setNames(data.frame(cbind(scale_input(emulators[[.]]$in_data, emulators[[.]]$ranges, FALSE), emulators[[.]]$out_data)), c(names(emulators[[.]]$ranges), "out")), 'out'))
+        ems <- purrr::map(emulators, ~.$set_theta(i*.$theta))
       }
       imps <- nth_implausible(ems, on_grid, z)
       cutoff <- purrr::map_dbl(intervals, ~1-length(imps[imps <= .])/length(imps))

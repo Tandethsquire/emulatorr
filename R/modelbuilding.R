@@ -114,33 +114,43 @@ hyperparam_fit <- function(inputs, model) {
   return(list(beta = list(mu = beta_coeffs, var = beta_var), sigma = u_sigma, theta = theta, delta = max(0.01,delta)))
 }
 
-# Performs maximum likelihood estimation of the hyperparameters sigma and theta.
-# At present, only does single theta estimates (i.e. the same correlation length
-# is applied in all parameter directions)
-get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta = 0.1) {
-  best_L <- -Inf
-  best_sigma <- best_theta <- NULL
+#' Hyperparameter estimation
+#'
+#' Does hyperparameter fitting using MLE.
+#'
+#' @importFrom stats optimise
+#'
+#' @param inputs The input data
+#' @param outputs The output values
+#' @param h The basis functions in the model
+#' @param theta_range The allowed range for theta
+#' @param delta The magnitude of the nugget term
+#'
+#' @keywords internal
+#' @noRd
+#'
+#' @return A list of hyperparameter values.
+get_likelihood <- function(inputs, outputs, h, theta_range, delta = 0.1) {
   hs <- eval_funcs(h, inputs)
-  # if (length(h) == 1) hs <- apply(inputs, 1, function(y) purrr::exec(h[[1]], y))
-  # else hs <- apply(inputs, 1, function(y) purrr::map_dbl(h, purrr::exec, y))
   corr_func <- function(x, xp, theta, delta) {
     (1-delta) * exp(-sum((x-xp)^2/theta^2)) + ifelse(all(x == xp), delta, 0)
   }
   corr_matrix <- function(points, theta, delta) {
     apply(points, 1, function(x) apply(points, 1, function(y) corr_func(x,y,theta,delta)))
   }
-  t_list <- seq(theta_range[1], theta_range[2], length.out = n_ints)
-  likelihood_list <- lapply(t_list, function(i) {
-    cmat <- corr_matrix(inputs, i, delta)
+  get_sigma <- function(theta, cm) {
+    t(outputs) %*% cm %*% outputs/nrow(inputs)
+  }
+  func_to_opt <- function(theta) {
+    cmat <- corr_matrix(inputs, theta, delta)
     cm <- chol2inv(chol(cmat))
-    var_est <- t(outputs) %*% cm %*% outputs
+    var_est <- get_sigma(theta, cm)
     if (is.null(nrow(hs))) lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% hs)^(-1/2) * var_est^(-(nrow(inputs)-1)/2)
     else lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% t(hs))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
-    return(list(L = lik, S = sqrt(var_est), Th = i))
-  })
-  liks <- purrr::map_dbl(likelihood_list, ~.$L)
-  l_ind <- which.max(liks)
-  return(list(sigma = likelihood_list[[l_ind]]$S/sqrt(length(outputs)), theta = likelihood_list[[l_ind]]$Th, delta = delta))
+    return(lik)
+  }
+  best_theta <- optimise(f = func_to_opt, interval = theta_range, maximum = TRUE)$maximum
+  return(list(sigma = sqrt(get_sigma(best_theta, chol2inv(chol(corr_matrix(inputs, best_theta, delta))))), theta = best_theta, delta = delta))
 }
 
 #' Generate Prior Emulators from Data
@@ -224,7 +234,7 @@ get_likelihood <- function(inputs, outputs, h, theta_range, n_ints = 100, delta 
 emulator_from_data <- function(input_data, output_names, ranges,
                                input_names = names(ranges), beta, u,
                                c_lengths, funcs, bucov, deltas, ev,
-                               quadratic = TRUE, beta.var = FALSE, lik.method = 'nl') {
+                               quadratic = TRUE, beta.var = FALSE, lik.method = 'my') {
   if (missing(ranges)) {
     warning("No ranges provided; inputs assumed to be in the range [-1,1].")
     ranges <- purrr::map(input_names, ~c(-1,1))
@@ -290,7 +300,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if (missing(deltas) && !missing(ev)) {
     new_deltas <- ev/purrr::map_dbl(out_ems, ~.$u_sigma)
     new_deltas <- purrr::map_dbl(new_deltas, ~min(1/3, .))
-    return(emulator_from_data(input_data, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, new_deltas, quadratic = quadratic, beta.var = beta.var))
+    return(emulator_from_data(input_data, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, new_deltas, quadratic = quadratic, beta.var = beta.var, lik.method = lik.method))
   }
   for (i in 1:length(out_ems)) out_ems[[i]]$output_name <- output_names[[i]]
   names(out_ems) <- output_names

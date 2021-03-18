@@ -17,7 +17,7 @@ scale_input <- function(x, r, forward = TRUE) {
   if (forward)
     output <- (x-centers)/scales
   else
-    output <- x*scales + centers
+    output <- x * scales + centers
   if (!"data.frame" %in% class(output))
     return(data.frame(output))
   return(output)
