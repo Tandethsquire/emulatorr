@@ -165,11 +165,11 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
   #else message(cat(length(new_points[,1]), "non-implausible points generated. Applying V-optimality..."))
   for (i in 1:n_runs)
   {
-    new_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
-    if(!"data.frame" %in% class(new_points)) new_points <- setNames(data.frame(new_points), names(ranges))
-    measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(emulators[[.x]]$get_cov(new_points))))
+    test_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
+    if(!"data.frame" %in% class(test_points)) test_points <- setNames(data.frame(test_points), names(ranges))
+    measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(emulators[[.x]]$get_cov(test_points))))
     if (is.null(current_trace) || measure < current_trace) {
-      out_points <- new_points
+      out_points <- test_points
       current_trace <- measure
     }
   }
