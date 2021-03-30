@@ -159,6 +159,7 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
   if (!"data.frame" %in% class(new_points)) new_points <- setNames(data.frame(new_points), names(ranges))
   if (length(new_points[,1]) < n_points) {
     if (verbose) message(cat("Only", length(new_points[,1]), "points generated."))
+    if (length(new_points[,1]) == 0) return(new_points)
     return(setNames(data.frame(new_points), names(ranges)))
   }
   #else message(cat(length(new_points[,1]), "non-implausible points generated. Applying V-optimality..."))

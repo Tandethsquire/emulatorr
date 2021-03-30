@@ -4,62 +4,53 @@
 \alias{IDEMC}
 \title{IDEMC Point Generation}
 \usage{
-IDEMC(
-  xsamp,
-  ems,
-  targets,
-  s,
-  sn,
-  p,
-  imp = 3,
-  all_specs = NULL,
-  imps = NULL,
-  ...
-)
+IDEMC(xsamp, ems, targets, s, sn, p, imp = 3, verbose = F, ...)
 }
 \arguments{
-\item{xsamp}{The initial points}
+\item{xsamp}{The initial sample of points, as a data.frame}
 
-\item{ems}{The emulators to evaluate implausibility over}
+\item{ems}{The emulators with which to evaluate implausibility}
 
 \item{targets}{The corresponding output targets}
 
-\item{s}{The number of points to generate at each burn-in stage}
+\item{s}{The number of points to generate in the burn-in phase}
 
 \item{sn}{The final number of points to generate}
 
-\item{p}{The proportion of points kept at each stage of burn-in}
+\item{p}{The proportion of points to keep in each new ladder rung}
 
-\item{imp}{The value of implausibility to stop the ladder at}
+\item{imp}{The value of implausibility that is ultimately desired}
 
-\item{all_specs}{If burn-in has already been performed, the cluster specifications}
-
-\item{imps}{If burn-in has alreadt been performed, the implausibility laddder values}
+\item{verbose}{Should logging messages be outputted? Default: F}
 
 \item{...}{Any additional parameters to pass to \code{IDEMC_step}}
 }
 \value{
-A list of data.frames, corresponding to the points generated at each rung
+A list of data.frames, corresponding to the points generated.
 }
 \description{
 Performs Implausibility-Driven Evolutionary Monte Carlo.
 }
 \details{
-Given a set of initial points
-(preferably sampled across the full space), the implausibility ladder is set up via a burn-in
-phase, before a full set of points is generated. This is a very compuationally intensive
-procedure for generating points, and should be used only when the target space is expected
-to be very small or have strange disconnected structure. For less awkward target spaces, use
-any of the functionality in \code{\link{generate_new_runs}}.
+Given a set of initial points (preferably space-filling across the space in question),
+the implausibility ladder is set up via a burn-in phase. Once the ladder of implausibilities
+has been determined, these are used to generate the full set of points.
 
-The burn-in starts with a rung defined as the full space (i.e. any point whose implausibility
-is less than the maximum implausibility over the space); from the sample of points it finds the
-value of the implausibility such that the proportion of points in the new rung is \code{p} times
-the number in the previous rung. It then uses these points to generate \code{s} new points at
-the new rung using \code{IDEMC}. This continues until a desired lower rung is found (defined
-by points whose implausibility is lower than \code{imp}).
+This is a very computationally expensive procedure for generating points, and should only be
+used when it is strongly suspected that the target region is extremely small or has an
+interesting disconnected structure. For more mundane point generation, a more suitable
+approach is the functionality in \code{\link{generate_new_runs}}.
 
-Once the burn-in is performed, a full set of \code{sn} points is produced using this ladder.
+The burn-in phase starts with a rung defined over the full space (i.e. the implausibility
+for this rung is simply the maximum implausibility over the space). The implausibility of
+the next rung is chosen to be such that 30% of the previous points are below this threshold.
+A full complement of points are generated at this new level, and the process is repeated
+using these new points to find the next rung of the ladder. This iterates until the desired
+final implausibility, \code{imp} has been reached as a ladder rung.
+
+Once the burn in has been performed, a full set of points are generated at each rung of the
+ladder (where it is assumed that the burn-in generated fewer points than required, so that
+\code{sn}<\code{s}).
 }
 \examples{
 \dontrun{
@@ -85,5 +76,5 @@ result <- IDEMC(start_pts, t_ems, z, 50, 100, 0.3, imp = 2)
 Vernon, I. & Williamson, D. (2013) Efficient uniform designs for multi-wave computer experiments. arXiv:1309.3520
 }
 \seealso{
-\code{\link{generate_new_runs}} for other point generation mechanisms.
+\code{\link{generate_new_runs}} for other point generation methods.
 }

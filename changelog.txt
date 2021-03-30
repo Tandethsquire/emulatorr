@@ -1,5 +1,7 @@
 Changelog (Development Branch)
-10/03/2021 = v0.7.1c. Bug fixes, and minor changes (see individual commit messages)
+30/03/2021 - v0.7.2. Stability changes across the board, including a modification to IDEMC generation for high-dimensional input spaces (to combat k-means clustering issues).
+
+10/03/2021 - v0.7.1c. Bug fixes, and minor changes (see individual commit messages)
 
 04/03/2021 - v0.7.1b. Bug fixes and stability: changes to generate_new_runs; support for 1d systems, and models whose regression surface is constant. Updated examples and documentation.
 

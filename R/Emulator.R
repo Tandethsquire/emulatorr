@@ -238,7 +238,7 @@ Emulator <- R6::R6Class(
         G <- apply(this_data_in, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x))
         O <- chol2inv(chol(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x))))
         siginv <- chol2inv(chol(self$beta_sigma))
-        new_beta_var <- chol2inv(chol(G %*% O %*% t(G) + siginv))
+        new_beta_var <- chol2inv(chol(G %*% O %*% (if(is.null(nrow(G))) G else t(G)) + siginv))
         new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + G %*% O %*% this_data_out)
       }
       new_em <- Emulator$new(self$basis_f, list(mu = new_beta_exp, sigma = new_beta_var),

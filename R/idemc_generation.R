@@ -2,28 +2,31 @@
 #'
 #' Takes two points, chooses a pivot along the points, and exchanges
 #' the values after the pivot. Concretely, given x = (x1, x2, ..., xd) and
-#' y = (y1, y2, ... , yd), a value k in 1:d is chosen, and the resulting points
-#' are (x1, x2, ..., xk, y(k+1), ... yd) and (y1, y2, ..., yk, x(k+1), xd).
-#' If the resulting points are non-implausible, they are kept.
+#' y = (y1, y2, ..., yd), a value k in 1:d is picked, and the resulting points
+#' are (x1, x2, ..., xk, y(k+1), ... yd) and (y1, y2, ..., yk, x(k+1), ... xd).
+#' If the resulting points are non-implausible with respect to their ladder rungs,
+#' they are kept.
 #'
-#' @param x The current set of points
+#' @param x The current set of points, as a list of data.frames
 #' @param imp_func An implausibility function (defined in \code{IDEMC})
-#' @param imps The list of implausibilities for the ladder.
+#' @param imps The list of implausibilities for the current ladder
 #'
 #' @keywords internal
 #' @noRd
 #'
-#' @return A data.frame containing the resulting points (with the crossover, if it passed)
+#' @return A list of data.frames containing the resulting points.
 crossover <- function(x, imp_func, imps) {
-  n <- nrow(x)
-  d <- ncol(x)
+  n <- length(x)
   indices <- sample(n, 2)
+  xi <- x[[indices[1]]][sample(nrow(x[[indices[1]]]), 1),]
+  xj <- x[[indices[2]]][sample(nrow(x[[indices[2]]]), 1),]
+  d <- length(names(xi))
   c_point <- sample(d-1, 1)
-  yi <- unlist(c(x[indices[1], 1:c_point], x[indices[2], (c_point+1):d], use.names = FALSE))
-  yj <- unlist(c(x[indices[2], 1:c_point], x[indices[1], (c_point+1):d], use.names = FALSE))
-  if (imp_func(setNames(data.frame(matrix(yi, nrow = 1)), names(x)), imps[indices[1]]) && imp_func(setNames(data.frame(matrix(yj, nrow = 1)), names(x)), imps[indices[2]])) {
-    x[indices[1],] <- yi
-    x[indices[2],] <- yj
+  yi <- unlist(c(xi[,1:c_point], xj[,(c_point+1):d]), use.names = FALSE)
+  yj <- unlist(c(xj[,1:c_point], xi[,(c_point+1):d]), use.names = FALSE)
+  if (imp_func(setNames(data.frame(matrix(yi, nrow = 1)), names(xi)), imps[indices[1]]) && imp_func(setNames(data.frame(matrix(yj, nrow = 1)), names(xj)), imps[indices[2]])) {
+    x[[indices[1]]] <- rbind(x[[indices[1]]], yi)
+    x[[indices[2]]] <- rbind(x[[indices[2]]], yj)
   }
   return(x)
 }
@@ -31,215 +34,154 @@ crossover <- function(x, imp_func, imps) {
 #' Exchange step
 #'
 #' Takes two points from neighbouring rungs of the implausibility
-#' ladder and swaps them. The changed ladders are kept if the point now
-#' moved into a lower implausibility ladder does indeed satisfy the conditions.
+#' ladder and swaps them. The exchange is kept if the point moved into
+#' a lower implausibility ladder satisfies the new, more stringent, implausibility
+#' constraint.
 #'
-#' @param x The current set of points
+#' @param x The current set of points, as a list of data.frames
 #' @param imp_func An implausibility function (defined in \code{IDEMC})
-#' @param imps The list of implausibilities for the ladder.
+#' @param imps The list of implausibilities for the ladder
 #'
 #' @keywords internal
 #' @noRd
 #'
-#' @return A data.frame containing the resulting points (with the exchange, if it passed)
+#' @return A list of data.frames containing the resulting points
 exchange <- function(x, imp_func, imps) {
-  n <- nrow(x)
-  i <- sample(n, 1)
-  if (i != n && i != 1)
-  {
-    r <- runif(1)
-    if (r < 0.5) {
-      j <- i
-      i <- j - 1
+  n <- length(x)
+  a <- sample(n, 1)
+  if (a != n && a != 1) {
+    if (runif(1) < 0.5) {
+      b <- a
+      a <- b - 1
     }
-    else j <- i + 1
+    else b <- a + 1
   }
-  else if (i == n) {
-    j = n
-    i = n-1
+  else if (a == n) {
+    b <- n
+    a <- n - 1
   }
-  else j <- 2
-  if (imp_func(x[i,], imps[j])) {
-    temp <- x[i,]
-    x[i,] <- x[j,]
-    x[j,] <- temp
+  else b <- 2
+  samp1 <- sample(nrow(x[[a]]),1)
+  samp2 <- sample(nrow(x[[b]]),1)
+  xa <- x[[a]][samp1,]
+  xb <- x[[b]][samp2,]
+  if (imp_func(xa, imps[b])) {
+    x[[a]][samp1,] <- xb
+    x[[b]][samp2,] <- xa
   }
   return(x)
 }
 
 #' Mutation step
 #'
-#' Takes a point and mutates it using Metropolis-Hastings. For a given rung of the
-#' implausibility ladder, we have a partition of the space using k-means clustering,
-#' from which we can find the within-cluster variance structure and the complete
-#' variance structure. These are used as part of the proposal distribution for new
-#' points, y.
+#' Takes a point and mutates it using Metropolis-Hastings. The distribution with which
+#' the point is mutated is a weighted uniform spherical distribution.
 #'
-#' @importFrom stats mahalanobis
-#'
-#' @param x The current points
-#' @param specs The cluster specifications for the ladder rungs
+#' @param ems The emulators in question
+#' @param x The current points, as a list of data.frames
 #' @param imp_func An implausibility function (defined in \code{IDEMC})
 #' @param imps The list of implausibilities for the ladder
-#' @param w The weighting of in-cluster and whole-space proposal distributions
-#' @param index The index of the rung to operate on. Defaults to \code{NULL}
+#' @param index The index of the ladder rung to mutate from. Default: \code{NULL}
 #'
 #' @keywords internal
 #' @noRd
 #'
-#' @return A data.frame with the resulting points (including mutation if successful)
-mutate <- function(x, specs, imp_func, imps, w = 0.8, index = NULL) {
-  if(is.null(index)) index <- sample(length(imps), 1)
-  chromosome <- unlist(x[index,], use.names = FALSE)
-  spec <- specs[[index]]
-  imp <- imps[index]
+#' @return A list of data.frames with the resulting points.
+mutate <- function(ems, x, imp_func, imps, index) {
+  pts <- x[[index]]
+  ranges <- ems[[1]]$ranges
   if (index == 1) {
-    y <- unlist(purrr::map_dbl(specs[[1]]$ranges, ~runif(1, .[1], .[2])))
-    x[index, ] <- y
+    y <- purrr::map_dbl(ranges, ~runif(1, .[1], .[2]))
+    x[[index]] <- rbind(x[[index]], y)
     return(x)
   }
-  which_c <- function(x) {
-    mahal_dists <- purrr::map_dbl(seq_along(spec$vji), ~mahalanobis(x, spec$mu[.,], spec$vji[[.]], inverted = TRUE))
-    return(which.min(mahal_dists))
-  }
-  which_chrom <- which_c(chromosome)
-  y <- c(w*mvtnorm::rmvnorm(1, chromosome, spec$vj[[which_chrom]]) + (1-w)*mvtnorm::rmvnorm(1, chromosome, spec$whole))
-  if (imp_func(setNames(data.frame(matrix(y, nrow = 1)), names(x)), imps[index])) {
-    if (which_c(y) == which_chrom) x[index,] <- y
-    else {
-      num <- w*mvtnorm::dmvnorm(chromosome, y, spec$vj[[which_chrom]]) + (1-w)*mvtnorm::dmvnorm(chromosome, y, spec$whole)
-      denom <- w*mvtnorm::dmvnorm(y, chromosome, spec$vj[[which_chrom]]) + (1-w)*mvtnorm::dmvnorm(y, chromosome, spec$whole)
-      if(runif(1) < num/denom) x[index, ] <- y
+  sampled_point <- sample(nrow(pts), 1)
+  mutate_point <- unlist(pts[sampled_point,], use.names = FALSE)
+  imp <- imps[index]
+  y <- runifs(1, length(mutate_point), mutate_point, r = purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4)
+  if (imp_func(setNames(data.frame(matrix(y, nrow = 1)), names(pts)), imps[index])) {
+    p_weight <- sum(apply(pts, 1, function(a) punifs(y, a, purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4)))
+    inv_pts <- rbind(pts, y)
+    inv_p_weight <- sum(apply(inv_pts, 1, function(a) punifs(mutate_point, a, purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/8)))-1
+    if (runif(1) < (inv_p_weight/p_weight)) {
+      x[[index]] <- rbind(x[[index]], y)
     }
   }
   return(x)
 }
 
-#' Clustering function
-#'
-#' Obtains the clusters for a given set of points. BIC is used to determine the
-#' optimal number of clusters; once this has been found, the points are put into
-#' their clusters and a within-cluster variance matrix is determined. The full
-#' space also has its variance calculated.
-#'
-#' @importFrom stats cov kmeans prcomp predict
-#'
-#' @param x The set of points
-#' @param max_clusters Determines the largest possible set of clusters
-#'
-#' @keywords internal
-#' @noRd
-#'
-#' @return A list containing cluster centres, variances, and the whole-space variance.
-get_specs <- function(x, max_clusters = 10) {
-  # For some reason, this works outside of the package, but not inside it.
-  # logLik.kmeans = function(object, ...) structure(
-  #   object$tot.withinss,
-  #   df = nrow(object$centers)*ncol(object$centers),
-  #   nobs = length(object$cluster),
-  #   class = 'logLik'
-  # )
-  ## Cluster using PCA decomposition of points
-  prcomped <- prcomp(x)
-  how_many_dims <- prcomped$sdev > 1
-  if (sum(how_many_dims) == 0) how_many_dims <- 1:min(3, length(x))
-  lower_dim <- predict(prcomped, x)[,how_many_dims]
-  kBIC <- function(fit) {
-    D <- fit$tot.withinss
-    df <- nrow(fit$centers) * ncol(fit$centers)
-    nobs <- length(fit$cluster)
-    return(D + df * log(nobs))
-  }
-  # If the commented code works, replace kBIC with BIC.
-  bics <- purrr::map_dbl(1:max_clusters, ~kBIC(kmeans(lower_dim, ., nstart = 50)))
-  cents <- which.min(bics)
-  clust <- kmeans(lower_dim, centers = cents, nstart = 50)
-  vmeans <- do.call('rbind', purrr::map(1:cents, ~apply(x[clust$cluster == .,], 2, mean)))
-  vmats <- purrr::map(1:cents, ~cov(x[clust$cluster == .,]))
-  vwhole <- cov(x)
-  if (any(purrr::map_dbl(vmats, det) < 1e-90)) {
-    vmatsi <- purrr::map(vmats, ~chol2inv(chol(. + diag(0.1, nrow = nrow(.)))))
-  }
-  else {
-    vmatsi <- purrr::map(vmats, ~chol2inv(chol(.)))
-  }
-  return(list(mu = vmeans, vj = vmats, whole = vwhole, vji = vmatsi))
-}
 
 #' IDEMC step
 #'
-#' Performs a single IDEMC step: given a set of points in an implauisbility ladder,
-#' it performs some number of mutations, crossovers, and exchanges. Only returns if
-#' a new point has been found.
+#' Performs a single IDEMC step: given a set of points in an implausibility ladder,
+#' it performs some number of mutations, crossovers, and exchanges. Continues until
+#' all rungs of the ladder have at least \code{s} points in them.
 #'
-#' @param points The initial set of points
+#' @param ems The emulators in question
+#' @param points The current set of points
 #' @param imp_func An implausibility function (defined in \code{IDEMC})
 #' @param imp_levels The implausibility ladder levels
-#' @param all_specs The cluster specifications for each rung of the ladder
-#' @param s The number of points to generate
-#' @param pm The probability of doing mutation rather than crossover in the step (default: 0.9)
-#' @param M If mutation, how many mutations should be performed (default: 10)
+#' @param s The desired number of points per rung
+#' @param pm The probability of mutation rather than crossover. Default: 0.9
+#' @param M The number of mutations to perform each time. Default: 10
 #'
 #' @keywords internal
 #' @noRd
 #'
-#' @return A set of laddered points generated by the step.
-IDEMC_step <- function(points, imp_func, imp_levels, all_specs, s, pm = 0.9, M = 10) {
-  total_set <- purrr::map(seq_along(points[,1]), ~points[.,])
-  start_points <- points
-  while(nrow(total_set[[length(total_set)]]) < s) {
+#' @return A list of data.frames corresponding to the ladder points.
+IDEMC_step <- function(ems, points, imp_func, imp_levels, s, pm = 0.9, M = 10) {
+  while(any(purrr::map(points, nrow) < s)) {
     r <- runif(1)
     if (r < pm) {
       for (i in 1:M) {
-        for (j in 1:length(total_set)) points <- mutate(points, all_specs, imp_func, imp_levels, index = j)
+        for (j in 1:length(points)) points <- mutate(ems, points, imp_func, imp_levels, index = j)
       }
     }
-    else
-      for (i in 1:floor((nrow(points)+1)/2)) points <- crossover(points, imp_func, imp_levels)
-    for (i in 1:(nrow(points)+1)) points <- exchange(points, imp_func, imp_levels)
-    if (!all(purrr::map_dbl(points[nrow(points),], ~signif(., 8)) == purrr::map_dbl(start_points[nrow(start_points),], ~signif(.,8)))) {
-    #if (!all(points[nrow(points),] == start_points[nrow(start_points),])) {
-      for (i in 1:length(total_set)) total_set[[i]] <- do.call('rbind', list(total_set[[i]], points[i,]))
-      start_points <- points
+    else {
+      for (j in 1:floor((length(points)+1)/2)) points <- crossover(points, imp_func, imp_levels)
     }
+    for (i in 1:(length(points)+1)) points <- exchange(points, imp_func, imp_levels)
   }
-  return(total_set)
+  points <- purrr::map(points, ~.[sample(nrow(.), s),])
 }
 
 #' IDEMC Point Generation
 #'
 #' Performs Implausibility-Driven Evolutionary Monte Carlo.
 #'
-#' Given a set of initial points
-#' (preferably sampled across the full space), the implausibility ladder is set up via a burn-in
-#' phase, before a full set of points is generated. This is a very compuationally intensive
-#' procedure for generating points, and should be used only when the target space is expected
-#' to be very small or have strange disconnected structure. For less awkward target spaces, use
-#' any of the functionality in \code{\link{generate_new_runs}}.
+#' Given a set of initial points (preferably space-filling across the space in question),
+#' the implausibility ladder is set up via a burn-in phase. Once the ladder of implausibilities
+#' has been determined, these are used to generate the full set of points.
 #'
-#' The burn-in starts with a rung defined as the full space (i.e. any point whose implausibility
-#' is less than the maximum implausibility over the space); from the sample of points it finds the
-#' value of the implausibility such that the proportion of points in the new rung is \code{p} times
-#' the number in the previous rung. It then uses these points to generate \code{s} new points at
-#' the new rung using \code{IDEMC}. This continues until a desired lower rung is found (defined
-#' by points whose implausibility is lower than \code{imp}).
+#' This is a very computationally expensive procedure for generating points, and should only be
+#' used when it is strongly suspected that the target region is extremely small or has an
+#' interesting disconnected structure. For more mundane point generation, a more suitable
+#' approach is the functionality in \code{\link{generate_new_runs}}.
 #'
-#' Once the burn-in is performed, a full set of \code{sn} points is produced using this ladder.
+#' The burn-in phase starts with a rung defined over the full space (i.e. the implausibility
+#' for this rung is simply the maximum implausibility over the space). The implausibility of
+#' the next rung is chosen to be such that 30% of the previous points are below this threshold.
+#' A full complement of points are generated at this new level, and the process is repeated
+#' using these new points to find the next rung of the ladder. This iterates until the desired
+#' final implausibility, \code{imp} has been reached as a ladder rung.
 #'
-#' @param xsamp The initial points
-#' @param ems The emulators to evaluate implausibility over
+#' Once the burn in has been performed, a full set of points are generated at each rung of the
+#' ladder (where it is assumed that the burn-in generated fewer points than required, so that
+#' \code{sn}<\code{s}).
+#'
+#' @param xsamp The initial sample of points, as a data.frame
+#' @param ems The emulators with which to evaluate implausibility
 #' @param targets The corresponding output targets
-#' @param s The number of points to generate at each burn-in stage
+#' @param s The number of points to generate in the burn-in phase
 #' @param sn The final number of points to generate
-#' @param p The proportion of points kept at each stage of burn-in
-#' @param imp The value of implausibility to stop the ladder at
-#' @param all_specs If burn-in has already been performed, the cluster specifications
-#' @param imps If burn-in has alreadt been performed, the implausibility laddder values
+#' @param p The proportion of points to keep in each new ladder rung
+#' @param imp The value of implausibility that is ultimately desired
+#' @param verbose Should logging messages be outputted? Default: F
 #' @param ... Any additional parameters to pass to \code{IDEMC_step}
 #'
-#' @return A list of data.frames, corresponding to the points generated at each rung
+#' @return A list of data.frames, corresponding to the points generated.
 #'
-#' @seealso \code{\link{generate_new_runs}} for other point generation mechanisms.
+#' @seealso \code{\link{generate_new_runs}} for other point generation methods.
 #'
 #' @references
 #' Vernon, I. & Williamson, D. (2013) Efficient uniform designs for multi-wave computer experiments. arXiv:1309.3520
@@ -265,47 +207,45 @@ IDEMC_step <- function(points, imp_func, imp_levels, all_specs, s, pm = 0.9, M =
 #'
 #' @export
 #'
-IDEMC <- function(xsamp, ems, targets, s, sn, p, imp = 3, all_specs = NULL, imps = NULL, ...) {
-  test_i <- max(nth_implausible(ems, xsamp, targets, max_imp = Inf))
+IDEMC <- function(xsamp, ems, targets, s, sn, p, imp = 3, verbose = F, ...) {
+  sample_imps <- nth_implausible(ems, xsamp, targets, max_imp = Inf)
+  test_i <- max(sample_imps)
   range_func <- function(x, ranges) {
-    all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2]))
+    all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.] <= ranges[[.]][2]))
   }
   check_imp <- function(x, imp) {
     if (!range_func(x, ems[[1]]$ranges)) return(FALSE)
     for (i in 1:length(ems)) if (!ems[[i]]$implausibility(x, targets[[i]], imp)) return(FALSE)
     return(TRUE)
   }
-  if (is.null(all_specs) || is.null(imps)) {
-    imps <- c(test_i)
-    specs_0 <- list(ranges = purrr::map(seq_along(xsamp[1,]), ~c(min(xsamp[,.]), max(xsamp[,.]))))
-    sample_imps <- nth_implausible(ems, xsamp, targets, max_imp = Inf)
-    samp_with_imps <- cbind(xsamp, sample_imps) %>% setNames(c(names(xsamp), "I"))
+  imps <- c(test_i)
+  if (verbose) print(test_i)
+  samp_with_imps <- setNames(cbind(xsamp, sample_imps), c(names(xsamp), "I"))
+  samp_with_imps <- samp_with_imps[order(samp_with_imps$I),]
+  cutoff_index <- floor(p*nrow(samp_with_imps)) + 1
+  test_i <- samp_with_imps[cutoff_index, "I"]
+  xsub <- samp_with_imps[1:cutoff_index, names(xsamp)]
+  if (nrow(xsub) > s) xsub <- xsub[sample(nrow(xsub), s),]
+  chroms <- list(xsamp, xsub)
+  imps <- c(imps, test_i)
+  while(test_i > imp) {
+    if (verbose) print(test_i)
+    new_sample <- IDEMC_step(ems, chroms, check_imp, imps, s, ...)
+    new_sample <- new_sample[[length(new_sample)]]
+    sample_imps <- nth_implausible(ems, new_sample, targets, max_imp = Inf)
+    samp_with_imps <- setNames(cbind(new_sample, sample_imps), c(names(new_sample), "I"))
     samp_with_imps <- samp_with_imps[order(samp_with_imps$I),]
-    test_index <- floor(p*nrow(samp_with_imps)) + 1
-    test_i <- samp_with_imps[test_index, "I"]
-    xsub <- samp_with_imps[1:test_index, names(xsamp)]
-    all_specs <- list(specs_0, get_specs(xsub))
-    chroms <- list(xsamp[nrow(xsamp),], xsub[nrow(xsub),])
+    cutoff_index <- floor(p*nrow(samp_with_imps)) + 1
+    test_i <- samp_with_imps[cutoff_index, "I"]
+    if (test_i < imp) test_i <- imp
+    xsub <- samp_with_imps[1:cutoff_index, names(new_sample)]
+    chroms[[length(chroms)+1]] <- xsub
     imps <- c(imps, test_i)
-    while(test_i > imp) {
-      new_sample <- IDEMC_step(do.call('rbind', chroms), check_imp, imps, all_specs, s, ...)
-      new_sample <- new_sample[[length(new_sample)]]
-      sample_imps <- nth_implausible(ems, new_sample, targets, max_imp = Inf)
-      samp_with_imps <- cbind(new_sample, sample_imps) %>% setNames(c(names(new_sample), "I"))
-      samp_with_imps <- samp_with_imps[order(samp_with_imps$I),]
-      test_index <- floor(p*nrow(samp_with_imps))+1
-      test_i <- samp_with_imps[test_index, "I"]
-      if (test_i < imp) test_i <- imp
-      xsub <- samp_with_imps[1:test_index, names(new_sample)]
-      all_specs[[length(chroms)+1]] <- get_specs(xsub)
-      chroms[[length(chroms)+1]] <- xsub[nrow(xsub),]
-      imps <- c(imps, test_i)
-    }
-    print("Finished burn-in. Implausibility ladder:")
-    print(imps)
   }
-  else chroms <- xsamp
-  final_out <- IDEMC_step(do.call('rbind', chroms), check_imp, imps, all_specs, sn, ...)
+  cat("Finished burn-in. Implausibility ladder:\n")
+  cat(imps)
+  cat("\n")
+  final_out <- IDEMC_step(ems, chroms, check_imp, imps, sn, ...)
   for (i in 1:length(final_out)) row.names(final_out[[i]]) <- NULL
   return(final_out)
 }
