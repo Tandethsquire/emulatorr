@@ -74,7 +74,7 @@ directional_fit <- function(em, x, v, ...) {
 #' @return A new proposal point, or the original point if a suitable new point could not be found.
 #'
 #' @export
-directional_proposal <- function(ems, x, targets, accept = 2, hcutoff = 1e-09, iteration.measure = 'exp', iteration.steps = 50, use.hessian = FALSE) {
+directional_proposal <- function(ems, x, targets, accept = 2, hcutoff = 1e-09, iteration.measure = 'exp', iteration.steps = 100, use.hessian = FALSE) {
   point_implaus <- purrr::map_dbl(seq_along(ems), ~ems[[.]]$implausibility(x, z = targets[[.]]))
   x_predict <- purrr::map_dbl(ems, ~.$get_exp(x))
   is_bigger <- purrr::map_lgl(seq_along(targets), ~targets[[.]]$val < x_predict[[.]])
@@ -105,7 +105,7 @@ directional_proposal <- function(ems, x, targets, accept = 2, hcutoff = 1e-09, i
     attempts <- 0
     gap <- 1e-06
     index <- 1
-    while(attempts < 50) {
+    while(attempts < iteration.steps) {
       new_point <- x + gap * index * best_dir
       new_measure <- if (iteration.measure == "exp") nth_discrepancy(ems, new_point, targets) else nth_implausible(ems, new_point, targets)
       if (new_measure < old_measure) {

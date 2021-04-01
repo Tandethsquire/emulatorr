@@ -11,7 +11,7 @@ directional_proposal(
   accept = 2,
   hcutoff = 1e-09,
   iteration.measure = "exp",
-  iteration.steps = 50,
+  iteration.steps = 100,
   use.hessian = FALSE
 )
 }

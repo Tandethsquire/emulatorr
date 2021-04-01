@@ -151,7 +151,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
 }
 
 # A function to perform lhs sampling
-lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff = 3, verbose = TRUE, nth = 1) {
+lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 100, cutoff = 3, verbose = TRUE, nth = 1, measure.method = 'V_optimal') {
   current_trace = NULL
   out_points <- NULL
   new_points <- eval_funcs(scale_input, setNames(data.frame(2*(lhs::randomLHS(n_points*20, length(ranges))-1/2)), names(ranges)), ranges, FALSE)
@@ -167,11 +167,21 @@ lhs_generation <- function(emulators, ranges, n_points, z, n_runs = 20, cutoff =
   {
     test_points <- new_points[sample(seq_along(new_points[,1]), n_points),]
     if(!"data.frame" %in% class(test_points)) test_points <- setNames(data.frame(test_points), names(ranges))
-    measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(emulators[[.x]]$get_cov(test_points))))
-    if (is.null(current_trace) || measure < current_trace) {
-      out_points <- test_points
-      current_trace <- measure
+    if (measure.method == 'maximin') {
+      measure <- min(dist(test_points))
+      if (is.null(current_trace) || measure > current_trace) {
+        out_points <- test_points
+        current_trace <- measure
+      }
     }
+    else if (measure.method == 'V_optimal') {
+      measure <- mean(purrr::map_dbl(seq_along(emulators), ~sum(emulators[[.x]]$get_cov(test_points))))
+      if (is.null(current_trace) || measure < current_trace) {
+        out_points <- test_points
+        current_trace <- measure
+      }
+    }
+    else stop("Unknown optimality method specified.")
   }
   return(setNames(data.frame(out_points), names(ranges)))
 }
