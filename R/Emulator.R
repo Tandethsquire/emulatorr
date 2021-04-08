@@ -26,7 +26,8 @@ Emulator <- R6::R6Class(
     corr = NULL,
     o_em = NULL,
     output_name = NULL,
-    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL, out_name = NULL, a_vars = NULL) {
+    data_diag = NULL,
+    initialize = function(basis_f, beta, u, ranges, bucov = NULL, data = NULL, delta = 0, model = NULL, original_em = NULL, out_name = NULL, a_vars = NULL, data_diag = 0) {
       self$model <- model
       self$model_terms <- tryCatch(
         c("1", labels(terms(self$model))),
@@ -40,6 +41,7 @@ Emulator <- R6::R6Class(
       self$u_sigma <- u$sigma
       self$delta <- delta
       self$corr <- u$corr
+      self$data_diag <- data_diag
       if (!is.null(out_name)) self$output_name <- out_name
       if (is.null(a_vars)) {
         self$active_vars <- purrr::map_lgl(seq_along(ranges), function(x) {
@@ -62,7 +64,7 @@ Emulator <- R6::R6Class(
         self$out_data <- data[, !(names(data) %in% names(self$ranges))]
       }
       if (!is.null(self$in_data)) {
-        private$data_corrs <- chol2inv(chol(self$u_sigma^2 * apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y))))
+        private$data_corrs <- chol2inv(chol(self$u_sigma^2 * apply(self$in_data, 1, function(y) apply(self$in_data, 1, self$corr_func, y)) + diag(self$data_diag, nrow = nrow(self$in_data))))
         private$design_matrix <- t(apply(self$in_data, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x)))
         if (nrow(private$design_matrix) == 1) private$design_matrix <- t(private$design_matrix)
         private$u_var_modifier <- private$data_corrs %*% private$design_matrix %*% self$beta_sigma %*% t(private$design_matrix) %*% private$data_corrs
@@ -231,12 +233,12 @@ Emulator <- R6::R6Class(
       this_data_in <- data.matrix(eval_funcs(scale_input, data[,names(self$ranges)], self$ranges))
       this_data_out <- data[,out_name]
       if (all(eigen(self$beta_sigma)$values == 0)) {
-        new_beta_var = self$beta_sigma
+        new_beta_var <- self$beta_sigma
         new_beta_exp <- self$beta_mu
       }
       else {
         G <- apply(this_data_in, 1, function(x) purrr::map_dbl(self$basis_f, purrr::exec, x))
-        O <- chol2inv(chol(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x))))
+        O <- chol2inv(chol(apply(this_data_in, 1, function(x) apply(this_data_in, 1, self$corr_func, x)) + diag(self$data_diag, nrow = nrow(this_data_in))))
         siginv <- chol2inv(chol(self$beta_sigma))
         new_beta_var <- chol2inv(chol(G %*% O %*% (if(is.null(nrow(G))) G else t(G)) + siginv))
         new_beta_exp <- new_beta_var %*% (siginv %*% self$beta_mu + G %*% O %*% this_data_out)
@@ -245,7 +247,7 @@ Emulator <- R6::R6Class(
                              u = list(mu = self$u_mu, sigma = self$u_sigma, corr = self$corr),
                              bucov = self$beta_u_cov, ranges = self$ranges, data = data[, c(names(self$ranges),out_name)],
                              delta = self$delta, original_em = self, out_name = out_name, model = self$model,
-                             a_vars = self$active_vars)
+                             a_vars = self$active_vars, data_diag = self$data_diag)
       return(new_em)
     },
     get_hessian = function(x, local.var = TRUE) {

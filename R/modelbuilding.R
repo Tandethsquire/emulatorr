@@ -149,7 +149,8 @@ get_likelihood <- function(inputs, outputs, h, theta_range, delta = 0.1) {
     else lik <- det(cmat)^(-1/2) * det(hs %*% cm %*% t(hs))^(-1/2) * var_est^(-(nrow(inputs)-nrow(hs))/2)
     return(lik)
   }
-  best_theta <- optimise(f = func_to_opt, interval = theta_range, maximum = TRUE)$maximum
+  if (length(theta_range) == 1) best_theta <- theta_range
+  else best_theta <- suppressWarnings(optimise(f = func_to_opt, interval = theta_range, maximum = TRUE)$maximum)
   return(list(sigma = sqrt(get_sigma(best_theta, chol2inv(chol(corr_matrix(inputs, best_theta, delta))))), theta = best_theta, delta = delta))
 }
 
@@ -275,7 +276,8 @@ emulator_from_data <- function(input_data, output_names, ranges,
     if (lik.method == "my") {
       residuals <- purrr::map(models, ~.$residuals)
       theta_range <- c(0.2, 2)
-      specs <- purrr::map(seq_along(residuals), ~get_likelihood(setNames(data.frame(data[,input_names]), input_names), residuals[[.]], model_basis_funcs[[.]], theta_range, delta = model_deltas[[.]]))
+      no_lengths <- missing(c_lengths)
+      specs <- purrr::map(seq_along(residuals), ~get_likelihood(setNames(data.frame(data[,input_names]), input_names), residuals[[.]], model_basis_funcs[[.]], theta_range = if(!no_lengths) c_lengths[[.]] else theta_range, delta = model_deltas[[.]]))
     }
     else {
       data <- setNames(data.frame(data), c(input_names, output_names))
@@ -305,4 +307,53 @@ emulator_from_data <- function(input_data, output_names, ranges,
   for (i in 1:length(out_ems)) out_ems[[i]]$output_name <- output_names[[i]]
   names(out_ems) <- output_names
   return(out_ems)
+}
+
+#' Variance Emulator builder
+#'
+#' Creates an emulator whose variance itself is emulated, for stochastic systems.
+#'
+#' @param input_data_var Required. A \code{data.frame} containing the input parameters and output
+#' variances from a set of simulator runs.
+#' @param input_data_exp Required. A \code{data.frame} containing the input parameters and output
+#' means from a set of simulator runs.
+#' @param npoints The number of runs performed per observed point.
+#' @param output_names Required. The list of outputs to emulate from \code{input_data}.
+#' @param ranges A named list of parameter ranges.
+#' @param input_names A list of input_names (if \code{ranges} is not provided).
+#' @param beta Optional: specifications for the regression coefficients, given as a list
+#' of lists \code{list(mu, sigma)} (a la \code{\link{Emulator}} specification).
+#' @param u Optional: the correlation structure for each output, given as a list of
+#' lists \code{list(mu, sigma, corr)}.
+#' @param c_lengths Optional: a set of correlation lengths.
+#' @param funcs Optional: basis functions for the regression surface.
+#' @param bucov Optional: a list of functions giving the covariance between each of the beta
+#' parameters and u(x).
+#' @param deltas Optional: the nugget terms to include in u(x).
+#' @param ev Optional. Used for determining nugget terms in absence on delta
+#' @param quadratic Optional: should the regression surface be linear or quadratic? Default: F
+#' @param beta.var Optional: should the beta coefficient be assumed to be known or should model variance be included?
+#' @param lik.method Optional: method used to determine hyperparameters sigma and theta.
+#' @param kurt The value of the kurtosis. Default: 3
+#'
+#' @return A list of \code{Emulator} objects.
+#'
+#' @export
+variance_emulator <- function(input_data_var, input_data_exp, npoints,
+                              output_names, ranges, kurt = 3,
+                              input_names = names(ranges), beta, u,
+                              c_lengths, funcs, bucov, deltas, ev,
+                              quadratic = TRUE, beta.var = FALSE, lik.method = 'my') {
+  prelim_var_ems <- emulator_from_data(input_data_var, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, deltas, ev, quadratic, beta.var, lik.method)
+  var_modifications <- purrr::map(prelim_var_ems, ~(.$get_exp(input_data_var)^2 + .$get_cov(input_data_var))/npoints * (kurt - 1 + 2/(npoints-1)))
+  for (i in 1:length(prelim_var_ems)) {
+    prelim_var_ems[[i]]$data_diag <- c(var_modifications[[i]])
+  }
+  trained_var_ems <- purrr::map(seq_along(prelim_var_ems), ~prelim_var_ems[[.]]$adjust(input_data_var, output_names[[.]]))
+  exp_modifications <- purrr::map(trained_var_ems, ~.$get_exp(input_data_exp)/npoints)
+  prelim_exp_ems <- emulator_from_data(input_data_exp, output_names, ranges, input_names, beta, u, c_lengths, funcs, bucov, deltas, ev, quadratic, beta.var, lik.method)
+  for (i in 1:length(prelim_exp_ems)) {
+    prelim_exp_ems[[i]]$data_diag <- c(exp_modifications[[i]])
+  }
+  return(list(variance = trained_var_ems, expectation = purrr::map(seq_along(prelim_exp_ems), ~prelim_exp_ems[[.]]$adjust(input_data_exp, output_names[[.]]))))
 }

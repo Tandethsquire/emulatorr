@@ -135,7 +135,7 @@ generate_new_runs <- function(emulators, ranges, n_points = 10*length(ranges), z
       sd <- purrr::map_dbl(ranges, ~.[[2]]-.[[1]])/4
     else
       sd <- NULL
-    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, checked = been_checked, ...)
+    points <- importance_sample(emulators, ranges, n_points, z, cutoff, sd, plausible_set = points, burn_in = burn_in, checked = been_checked, nth = nth, ...)
   }
   else if (method == 'slice') {
     if (verbose) print("Performing slice sampling...")
@@ -249,13 +249,19 @@ optical_depth_generation <- function(emulators, ranges, n_points, z, n_runs = 10
   return(outset)
 }
 
-importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, distro = 'sphere', plausible_set, burn_in = FALSE, checked = FALSE) {
+importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, distro = 'sphere', plausible_set, burn_in = FALSE, checked = FALSE, nth = 1) {
   J <- function(dat) {
-    t_dat <- dat
-    for (i in 1:length(ems)) {
-      t_dat <- t_dat[ems[[i]]$implausibility(t_dat, z[[i]], cutoff),]
+    if (nth == 1) {
+      t_dat <- dat
+      for (i in 1:length(ems)) {
+        t_dat <- t_dat[ems[[i]]$implausibility(t_dat, z[[i]], cutoff),]
+      }
+      return(rownames(dat) %in% rownames(t_dat))
     }
-    return(rownames(dat) %in% rownames(t_dat))
+    else {
+      imps <- nth_implausible(ems, dat, n = nth)
+      return(dat[imps < cutoff,])
+    }
   }
   range_func <- function(dat, ranges) {
     apply(dat, 1, function(x) all(purrr::map_lgl(seq_along(ranges), ~x[.]>=ranges[[.]][1] && x[.]<=ranges[[.]][2])))
