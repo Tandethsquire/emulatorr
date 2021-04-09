@@ -260,7 +260,7 @@ importance_sample <- function(ems, ranges, n_points, z, cutoff = 3, sd = NULL, d
     }
     else {
       imps <- nth_implausible(ems, dat, z, n = nth)
-      return(dat[imps < cutoff,])
+      return(rownames(dat) %in% rownames(dat[imps < cutoff,]))
     }
   }
   range_func <- function(dat, ranges) {
